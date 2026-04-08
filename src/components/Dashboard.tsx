@@ -92,7 +92,7 @@ export default function Dashboard() {
     seo: <SEO data={data!} />,
     team: <PeopleTeam data={data!} />,
     'rev-detail': <RevenueDetail data={data!} filterYear={filterYear} />,
-    'margin-detail': <MarginDetail />,
+    'margin-detail': <MarginDetail data={data!} />,
     'ch-detail': <ChannelDetail data={data!} filterYear={filterYear} />,
     'prod-detail': <ProductionDetail data={data!} filterSkus={filterSkus} />,
   }
