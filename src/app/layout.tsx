@@ -5,6 +5,10 @@ export const metadata: Metadata = {
   title: 'UmamiPapi — CEO Dashboard',
   description: 'UmamiPapi CEO Dashboard · FY26',
   themeColor: '#111111',
+  manifest: '/manifest.json',
+  icons: {
+    apple: '/icon.png',
+  },
   other: {
     'apple-mobile-web-app-capable': 'yes',
     'apple-mobile-web-app-status-bar-style': 'black-translucent',
