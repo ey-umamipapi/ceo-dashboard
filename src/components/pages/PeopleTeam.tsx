@@ -1,7 +1,15 @@
 'use client'
 
 import { DashboardData } from '@/types'
-import { MARK_KPIS, PERF_LOG, DATA_UPDATED } from '@/lib/utils'
+import { MARK_KPIS, PERF_LOG } from '@/lib/utils'
+
+function formatSyncTime(syncMetadata: any[] | undefined, source: string): string {
+  if (!syncMetadata || syncMetadata.length === 0) return 'Not synced'
+  const meta = syncMetadata.find(m => m.source === source)
+  if (!meta || !meta.last_sync_at) return 'Not synced'
+  const d = new Date(meta.last_sync_at)
+  return d.toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })
+}
 
 export default function PeopleTeam({ data }: { data: DashboardData }) {
   const issues = data.issues ?? []
@@ -15,7 +23,7 @@ export default function PeopleTeam({ data }: { data: DashboardData }) {
     <div className="page">
       {/* DSB */}
       <div className="dsb">
-        <div className="dsb-item"><div className="dsb-dot" /><span className="dsb-label">Master Papi</span><span>{DATA_UPDATED.masterPapi}</span></div>
+        <div className="dsb-item"><div className="dsb-dot" /><span className="dsb-label">Master Papi</span><span>{formatSyncTime(data.syncMetadata, 'masterpapi')}</span></div>
       </div>
 
       {/* KPI Row */}

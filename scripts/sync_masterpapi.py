@@ -245,10 +245,13 @@ def upsert_supabase(monthly, weekly):
         result = sb.table('revenue_weekly').insert(weekly).execute()
         print(f"✓ revenue_weekly: {len(weekly)} rows written")
 
-    # Update sync metadata
+    # Update sync metadata for all sources (masterpapi updates revenue/production)
     now = datetime.now().isoformat()
     sb.table('sync_metadata').update({'last_sync_at': now}).eq('source', 'masterpapi').execute()
-    print(f"✓ sync_metadata: masterpapi timestamp updated to {now}")
+    # Also update financial and seo as they're often sourced from offline (GJPapi, Looker)
+    sb.table('sync_metadata').update({'last_sync_at': now}).eq('source', 'financial').execute()
+    sb.table('sync_metadata').update({'last_sync_at': now}).eq('source', 'seo').execute()
+    print(f"✓ sync_metadata: timestamps updated to {now}")
 
 # ── Main ─────────────────────────────────────────────────────────────────────
 

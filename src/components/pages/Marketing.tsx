@@ -4,9 +4,17 @@ import { useState } from 'react'
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, LineElement, PointElement, ArcElement, Title, Tooltip, Legend, Filler } from 'chart.js'
 import { Line, Bar } from 'react-chartjs-2'
 import { DashboardData, MarketingMonth, MarketingDaily } from '@/types'
-import { fmt, pct, pctFmt, SOCIAL_DATA, DATA_UPDATED } from '@/lib/utils'
+import { fmt, pct, pctFmt, SOCIAL_DATA } from '@/lib/utils'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, LineElement, PointElement, ArcElement, Title, Tooltip, Legend, Filler)
+
+function formatSyncTime(syncMetadata: any[] | undefined, source: string): string {
+  if (!syncMetadata || syncMetadata.length === 0) return 'Not synced'
+  const meta = syncMetadata.find(m => m.source === source)
+  if (!meta || !meta.last_sync_at) return 'Not synced'
+  const d = new Date(meta.last_sync_at)
+  return d.toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })
+}
 
 const DL = 'rgba(255,255,255,0.04)'
 const RED = '#C0392B', RLT = '#E74C3C', CRM = '#F5E6D0', GRN = '#27AE60', ORG = '#E67E22', BLU = '#2980B9', PRP = '#8E44AD'
@@ -133,8 +141,8 @@ export default function Marketing({ data }: { data: DashboardData }) {
     <div className="page">
       {/* DSB */}
       <div className="dsb">
-        <div className="dsb-item"><div className="dsb-dot" /><span className="dsb-label">eCommerce</span><span>{DATA_UPDATED.ecom}</span></div>
-        <div className="dsb-item"><div className="dsb-dot" /><span className="dsb-label">Social</span><span>{DATA_UPDATED.social}</span></div>
+        <div className="dsb-item"><div className="dsb-dot" /><span className="dsb-label">eCommerce</span><span>{formatSyncTime(data.syncMetadata, 'marketing')}</span></div>
+        <div className="dsb-item"><div className="dsb-dot" /><span className="dsb-label">Social</span><span>{formatSyncTime(data.syncMetadata, 'seo')}</span></div>
       </div>
 
       {/* Command Block */}
