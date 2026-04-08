@@ -155,6 +155,12 @@ export interface DismissedAlert {
   dismissed_date: string
 }
 
+export interface SyncMetadata {
+  id?: number
+  source: string
+  last_sync_at: string
+}
+
 export interface DashboardData {
   fy26: RevenueMonth[]
   fy25: RevenueMonth[]
@@ -171,6 +177,7 @@ export interface DashboardData {
   signals: Signal[]
   marketingDaily: MarketingDaily[]
   seoSnapshots: SEOSnapshot[]
+  syncMetadata: SyncMetadata[]
 }
 
 export type PageId =

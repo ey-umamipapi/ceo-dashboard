@@ -18,6 +18,7 @@ export async function GET() {
     { data: signals },
     { data: marketingDaily },
     { data: seoSnapshots },
+    { data: syncMetadata },
   ] = await Promise.all([
     supabase.from('revenue_monthly').select('*').eq('fiscal_year', 'fy26').order('sort_order'),
     supabase.from('revenue_monthly').select('*').eq('fiscal_year', 'fy25').order('sort_order'),
@@ -34,6 +35,7 @@ export async function GET() {
     supabase.from('signals').select('*').order('id', { ascending: false }),
     supabase.from('marketing_daily').select('*').order('date', { ascending: false }),
     supabase.from('seo_snapshots').select('*').order('date', { ascending: false }),
+    supabase.from('sync_metadata').select('*'),
   ])
 
   return NextResponse.json({
@@ -52,5 +54,6 @@ export async function GET() {
     signals: signals ?? [],
     marketingDaily: marketingDaily ?? [],
     seoSnapshots: seoSnapshots ?? [],
+    syncMetadata: syncMetadata ?? [],
   })
 }

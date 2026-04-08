@@ -232,6 +232,11 @@ def upsert_supabase(monthly, weekly):
         result = sb.table('revenue_weekly').insert(weekly).execute()
         print(f"✓ revenue_weekly: {len(weekly)} rows written")
 
+    # Update sync metadata
+    now = datetime.now().isoformat()
+    sb.table('sync_metadata').update({'last_sync_at': now}).eq('source', 'masterpapi').execute()
+    print(f"✓ sync_metadata: masterpapi timestamp updated to {now}")
+
 # ── Main ─────────────────────────────────────────────────────────────────────
 
 def main():
