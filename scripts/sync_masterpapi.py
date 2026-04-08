@@ -217,6 +217,19 @@ def upsert_supabase(monthly, weekly):
     print(f"\nConnecting to Supabase: {SUPABASE_URL}")
     sb = create_client(SUPABASE_URL, SUPABASE_KEY)
 
+    # Ensure sync_metadata table exists
+    try:
+        sb.table('sync_metadata').select('*', count='exact').limit(1).execute()
+    except:
+        print("Creating sync_metadata table...")
+        # Try to insert — if table doesn't exist, it will fail, but that's ok
+        try:
+            sb.table('sync_metadata').upsert({'source': 'masterpapi', 'last_sync_at': datetime.now().isoformat()}).execute()
+        except:
+            print("⚠ sync_metadata table not found. Create it in Supabase SQL editor with:")
+            print("  CREATE TABLE sync_metadata (id SERIAL PRIMARY KEY, source TEXT NOT NULL UNIQUE, last_sync_at TIMESTAMPTZ NOT NULL);")
+            print("Then run this script again.")
+
     # Upsert revenue_monthly (FY26 only — match on fiscal_year + month)
     if monthly:
         print(f"\nUpserting {len(monthly)} monthly revenue rows...")
