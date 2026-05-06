@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import type { DashboardData, PageId, Theme, Role, TaskDepartment } from '@/types'
 import Nav from './Nav'
+import SectionBar from './SectionBar'
 import Topbar from './Topbar'
 import MobileNav from './MobileNav'
 import CreateTaskModal from './CreateTaskModal'
@@ -160,7 +161,10 @@ export default function Dashboard({ userEmail, userRole }: { userEmail: string; 
 
   return (
     <>
-      <Nav activePage={activePage} setActivePage={setActivePage} userRole={userRole} onGoToBoard={() => setActivePage('board')} />
+      <SectionBar activePage={activePage} setActivePage={setActivePage} userRole={userRole} />
+
+      <div className="app-body">
+      <Nav activePage={activePage} setActivePage={setActivePage} userRole={userRole} />
 
       <main>
         <Topbar
@@ -189,6 +193,8 @@ export default function Dashboard({ userEmail, userRole }: { userEmail: string; 
           {pages[activePage]}
         </div>
       </main>
+
+      </div>
 
       <MobileNav
         activePage={activePage}
