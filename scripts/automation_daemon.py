@@ -26,6 +26,7 @@ SUPABASE_URL = os.environ.get('NEXT_PUBLIC_SUPABASE_URL') or os.environ['NEXT_PU
 SUPABASE_KEY = os.environ.get('SUPABASE_SERVICE_KEY') or os.environ.get('NEXT_PUBLIC_SUPABASE_ANON_KEY')
 COWORK       = '/Users/koji/Library/CloudStorage/OneDrive-umamipapi.com.au/DatabasePapi/Cowork'
 CEO_CODE     = '/Users/koji/Library/CloudStorage/OneDrive-umamipapi.com.au/CEO Cowork/CEO Code/ceo-dashboard'
+GJ_PROCESSOR = '/Users/koji/Library/CloudStorage/OneDrive-umamipapi.com.au/CEO Cowork/CEO Code/GJ Processor'
 POLL_INTERVAL = 5   # seconds between job checks
 HEARTBEAT_INTERVAL = 30  # seconds between heartbeats
 
@@ -85,6 +86,16 @@ def dispatch(job_type: str) -> str:
         result = subprocess.run(
             ['python3', f'{COWORK}/Scripts/3pl_report.py'],
             capture_output=True, text=True, timeout=300,
+        )
+        if result.returncode != 0:
+            raise RuntimeError(result.stderr[-500:] if result.stderr else 'Non-zero exit')
+        return (result.stdout.strip().split('\n')[-1] or 'Done')[:200]
+
+    elif job_type == 'gj-processor':
+        result = subprocess.run(
+            ['python3', 'gj_processor.py'],
+            capture_output=True, text=True, timeout=300,
+            cwd=GJ_PROCESSOR,
         )
         if result.returncode != 0:
             raise RuntimeError(result.stderr[-500:] if result.stderr else 'Non-zero exit')

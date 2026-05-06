@@ -41,8 +41,15 @@ const AUTOMATIONS = [
     category: 'Operations',
   },
   {
+    id: 'gj-processor',
+    label: 'Run GJ Processor',
+    desc: 'Auto-categorise Amex, ANZ bank, and ANZ credit card CSVs and output a clean New Export tab ready to paste into the GJ.',
+    icon: '📒',
+    category: 'Finance',
+  },
+  {
     id: 'sync-dashboard',
-    label: 'Refresh HubPapi',
+    label: 'Refresh Papi Hub',
     desc: 'Sync MasterPapi + ecommerce data and redeploy to hub.umamipapi.com.au.',
     icon: '🔄',
     category: 'System',

@@ -84,7 +84,7 @@ export const SOCIAL_DATA = {
     ]
   },
   apr: {
-    month: 'Apr 2026 (MTD)', asOf: null,
+    month: 'Apr 2026', asOf: null,
     posts: [
       {id:'UMPI-01',pillar:'Community',status:'SHOT',scheduled:null,idea:'UmamiPapi Customer Story #1'},
       {id:'UMPI-02',pillar:'Community',status:'IDEATED',scheduled:null,idea:'UmamiPapi Customer Story #2'},
@@ -94,6 +94,16 @@ export const SOCIAL_DATA = {
       {id:'UMPI-06',pillar:'Promo/Collabs',status:'IDEATED',scheduled:null,idea:'UmamiPapi X Chadstone Collab'},
       {id:'UMPI-07',pillar:'Candid / Q&A',status:'SHOT',scheduled:null,idea:'Quick Questions'},
       {id:'UMPI-08',pillar:'Candid / Q&A',status:'SHOT',scheduled:null,idea:'Ninja Q&A'},
+    ]
+  },
+  may: {
+    month: 'May 2026 (MTD)', asOf: null,
+    posts: [
+      {id:'UMPI-01',pillar:'Founder-Led',status:'IDEATED',scheduled:null,idea:'What I wish I knew before starting UmamiPapi'},
+      {id:'UMPI-02',pillar:'Candid / Q&A',status:'IDEATED',scheduled:null,idea:'Hot Takes on the sauce industry'},
+      {id:'UMPI-03',pillar:'Promo/Collabs',status:'IDEATED',scheduled:null,idea:'UmamiPapi X Chadstone launch'},
+      {id:'UMPI-04',pillar:'Education',status:'IDEATED',scheduled:null,idea:'Why umami makes everything taste better'},
+      {id:'UMPI-05',pillar:'Community',status:'IDEATED',scheduled:null,idea:'UmamiPapi Customer Story #3'},
     ]
   }
 }

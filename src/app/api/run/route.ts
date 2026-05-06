@@ -6,6 +6,7 @@ const ALLOWED_JOB_TYPES = [
   'retcon-sales',
   'sync-dashboard',
   '3pl-report',
+  'gj-processor',
 ] as const
 type JobType = typeof ALLOWED_JOB_TYPES[number]
 
@@ -21,7 +22,7 @@ export async function POST(req: Request) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const role = await getUserRole(supabase, user.id)
-  if (role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  if (!['admin', 'ceo'].includes(role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const { jobType } = await req.json()
   if (!ALLOWED_JOB_TYPES.includes(jobType as JobType)) {
@@ -45,7 +46,7 @@ export async function GET() {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const role = await getUserRole(supabase, user.id)
-  if (role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  if (!['admin', 'ceo'].includes(role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const [jobsRes, statusRes] = await Promise.all([
     supabase

@@ -55,7 +55,7 @@ export default function ResetPasswordPage() {
             Set your password
           </div>
           <div style={{ fontSize: 12, color: '#555', marginTop: 4 }}>
-            Choose a password for your HubPapi account
+            Choose a password for your Papi Hub account
           </div>
         </div>
 

@@ -23,7 +23,7 @@ export default function SectionBar({ activePage, setActivePage, userRole }: Prop
     <div className="section-bar">
       <div className="section-bar-logo" onClick={() => goSection('ceo')} style={{ cursor: 'pointer' }}>
         <Image src="/chilli.png" alt="UmamiPapi" width={20} height={19} style={{ flexShrink: 0 }} />
-        <span className="section-bar-wordmark">HubPapi</span>
+        <span className="section-bar-wordmark">Papi Hub</span>
       </div>
       <div className="section-bar-divider" />
       {sections.map(s => (

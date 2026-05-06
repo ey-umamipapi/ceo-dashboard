@@ -1,6 +1,6 @@
 {
-  "name": "UmamiPapi CEO Dashboard",
-  "short_name": "Dashboard",
+  "name": "Papi Hub",
+  "short_name": "Papi Hub",
   "description": "Real-time executive operating system for UmamiPapi",
   "start_url": "/",
   "display": "standalone",

@@ -20,9 +20,9 @@ const PILLARS = [
   { name: 'Promo/Collabs',count: 3, color: '#888', note: '' },
 ]
 
-type SocialMonth = 'feb' | 'mar' | 'apr'
-const MONTHS: SocialMonth[] = ['feb', 'mar', 'apr']
-const MONTH_LABELS: Record<SocialMonth, string> = { feb: 'Feb', mar: 'Mar', apr: 'Apr' }
+type SocialMonth = 'feb' | 'mar' | 'apr' | 'may'
+const MONTHS: SocialMonth[] = ['feb', 'mar', 'apr', 'may']
+const MONTH_LABELS: Record<SocialMonth, string> = { feb: 'Feb', mar: 'Mar', apr: 'Apr', may: 'May' }
 
 function pillarColor(pillar: string): string {
   const p = PILLARS.find(x => pillar.startsWith(x.name.split('/')[0]))
@@ -35,7 +35,7 @@ function StatusTag({ status }: { status: string }) {
 }
 
 export default function Socials({ data }: { data: DashboardData }) {
-  const [month, setMonth] = useState<SocialMonth>('apr')
+  const [month, setMonth] = useState<SocialMonth>('may')
   const period = SOCIAL_DATA[month]
 
   const allPosts = [
