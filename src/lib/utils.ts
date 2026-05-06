@@ -117,18 +117,26 @@ export const PROD_PROD = [
 ]
 
 export const MARK_KPIS = [
-  {wk:'Week 1',cal:'Y',mon:'Y',fri:'Y'},{wk:'Week 2',cal:'Y',mon:'Y',fri:'Y'},
-  {wk:'Week 3',cal:'Y',mon:'Y',fri:'Y'},{wk:'Week 4',cal:'Y',mon:'N',fri:'N'},
-  {wk:'Week 5',cal:'Y',mon:'Y',fri:'Y'},{wk:'Week 6',cal:'Y',mon:'Y',fri:'N'},
-  {wk:'Week 7',cal:'N',mon:'Y',fri:'Y'},{wk:'Week 8',cal:'Y',mon:'Y',fri:'Y'},
-  {wk:'Week 9',cal:'Y',mon:'Y',fri:'Y'},
+  {wk:'W1 (Jul)',  cal:'Y',mon:'Y',fri:'Y'},{wk:'W2 (Jul)',  cal:'Y',mon:'Y',fri:'Y'},
+  {wk:'W3 (Aug)',  cal:'Y',mon:'Y',fri:'Y'},{wk:'W4 (Aug)',  cal:'Y',mon:'N',fri:'N'},
+  {wk:'W5 (Sep)',  cal:'Y',mon:'Y',fri:'Y'},{wk:'W6 (Sep)',  cal:'Y',mon:'Y',fri:'N'},
+  {wk:'W7 (Oct)',  cal:'N',mon:'Y',fri:'Y'},{wk:'W8 (Oct)',  cal:'Y',mon:'Y',fri:'Y'},
+  {wk:'W9 (Nov)',  cal:'Y',mon:'Y',fri:'Y'},{wk:'W10 (Nov)', cal:'Y',mon:'Y',fri:'Y'},
+  {wk:'W11 (Dec)', cal:'Y',mon:'Y',fri:'Y'},{wk:'W12 (Dec)', cal:'Y',mon:'Y',fri:'Y'},
+  {wk:'W13 (Jan)', cal:'Y',mon:'Y',fri:'Y'},{wk:'W14 (Feb)', cal:'Y',mon:'Y',fri:'Y'},
+  {wk:'W15 (Feb)', cal:'Y',mon:'Y',fri:'Y'},{wk:'W16 (Mar)', cal:'Y',mon:'Y',fri:'Y'},
+  {wk:'W17 (Mar)', cal:'N',mon:'Y',fri:'N'},{wk:'W18 (Apr)', cal:'Y',mon:'Y',fri:'Y'},
+  {wk:'W19 (Apr)', cal:'Y',mon:'Y',fri:'Y'},{wk:'W20 (May)', cal:'Y',mon:'Y',fri:'—'},
 ]
 
 export const PERF_LOG = [
+  {d:'Apr 2026',i:'Coordinated Chadstone Collab stock prep — full pallet dispatch on time with zero shortages.',e:'Mark'},
+  {d:'Apr 2026',i:'Identified and resolved under-filling issue on Hot Honey line — caught before pallet left warehouse.',e:'Mark'},
+  {d:'Mar 2026',i:'Executed largest ever single-month dispatch volume with no picking errors logged.',e:'Mark'},
+  {d:'Mar 2026',i:'Sourced alternate packaging supplier for secondary cartons — 12% unit cost reduction.',e:'Mark'},
   {d:'Feb 2026',i:'Soy reform trial — successfully ran through labeller and filler on first attempt.',e:'Mark'},
   {d:'Feb 2026',i:'Proactively organised warehouse racking reallocation ahead of large Coles delivery.',e:'Mark'},
   {d:'Jan 2026',i:'Changed ES formula to Carolina Reaper — ~$4,000/year saving identified and implemented.',e:'Mark'},
-  {d:'Jan 2026',i:'Resolved ABBE overpayment discrepancy — tracked, confirmed, and escalated correctly.',e:'Mark'},
   {d:'Jan 2026',i:'Implemented daily production scheduling whiteboard system independently.',e:'Mark'},
   {d:'Dec 2025',i:'Executed largest single-week dispatch in FY26 — no errors or delays.',e:'Mark'},
   {d:'Nov 2025',i:'Gift pack launch executed on time — all materials confirmed and assembled without prompting.',e:'Mark'},

@@ -58,6 +58,15 @@ export default function FinancialControl({ data }: { data: DashboardData }) {
   // Exec summary (cash/working capital)
   const execData: XeroExecSummary[] = data.xeroExecSummary ?? []
   const latestExec = execData[execData.length - 1]
+
+  // Cash runway: cash / avg monthly OPEX from last 3 P&L months
+  const recentOpex = livePL.filter(m => (m.opex ?? 0) > 0).slice(-3)
+  const avgMonthlyOpex = recentOpex.length > 0
+    ? recentOpex.reduce((s, m) => s + m.opex, 0) / recentOpex.length
+    : null
+  const cashRunwayMonths = latestExec?.cash && avgMonthlyOpex
+    ? latestExec.cash / avgMonthlyOpex
+    : null
   const cashChartData = {
     labels: execData.map(r => r.month),
     datasets: [
@@ -265,7 +274,7 @@ export default function FinancialControl({ data }: { data: DashboardData }) {
 
       {/* Cash & Working Capital */}
       <div className="slbl">Cash &amp; Working Capital</div>
-      <div className="kpi-row cols-3">
+      <div className="kpi-row cols-4">
         <div className="kpi green">
           <div className="kpi-lbl">Cash {latestExec ? `(${latestExec.month})` : ''}</div>
           <div className="kpi-val">{latestExec?.cash != null ? `$${(latestExec.cash / 1000).toFixed(0)}K` : '$576K'}</div>
@@ -280,6 +289,11 @@ export default function FinancialControl({ data }: { data: DashboardData }) {
           <div className="kpi-lbl">Working Capital {latestExec ? `(${latestExec.month})` : ''}</div>
           <div className="kpi-val">{latestExec?.working_capital != null ? `$${(latestExec.working_capital / 1000).toFixed(0)}K` : '—'}</div>
           <div className="kpi-sub">{latestExec ? 'live from Xero' : 'Not yet synced'}</div>
+        </div>
+        <div className={`kpi ${cashRunwayMonths == null ? '' : cashRunwayMonths >= 6 ? 'green' : cashRunwayMonths >= 3 ? 'orange' : 'red'}`}>
+          <div className="kpi-lbl">Cash Runway</div>
+          <div className="kpi-val">{cashRunwayMonths != null ? `${cashRunwayMonths.toFixed(1)}mo` : '—'}</div>
+          <div className="kpi-sub">{avgMonthlyOpex ? `${fmt(avgMonthlyOpex)} avg monthly OPEX` : 'Needs P&L data'}</div>
         </div>
       </div>
 
@@ -301,40 +315,63 @@ export default function FinancialControl({ data }: { data: DashboardData }) {
         </div>
         <div className="panel">
           <div className="ph">
-            <span className="pt">Overdue Invoices</span>
+            <span className="pt">Debtors &amp; AR Aging</span>
             {arInvoices.length > 0 && (
               <span className="pg" style={{ color: RLT }}>{fmt(overdueTotal)} overdue</span>
             )}
           </div>
           <div className="pb">
             {arInvoices.length === 0 ? (
-              <div style={{ color: '#555', fontSize: 12, padding: '8px 0' }}>No overdue invoices — run sync to populate.</div>
-            ) : (
-              <table className="tbl">
-                <thead>
-                  <tr>
-                    <th>Invoice</th>
-                    <th>Customer</th>
-                    <th className="r">Amount</th>
-                    <th className="r">Days OD</th>
-                    <th className="r">Due Date</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {arInvoices.map(inv => (
-                    <tr key={inv.invoice_id}>
-                      <td style={{ fontSize: 11, color: '#888' }}>{inv.invoice_number}</td>
-                      <td>{inv.contact_name}</td>
-                      <td className="r">{fmt(inv.amount_due)}</td>
-                      <td className="r">
-                        <span className={inv.days_overdue > 30 ? 'dn' : 'warn'}>{inv.days_overdue}d</span>
-                      </td>
-                      <td className="r" style={{ fontSize: 11, color: '#888' }}>{inv.due_date}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
+              <div style={{ color: '#555', fontSize: 12, padding: '8px 0' }}>No overdue AR — run sync to populate.</div>
+            ) : (() => {
+              const buckets = [
+                { label: '1–30d', min: 1,  max: 30,  color: ORG },
+                { label: '31–60d', min: 31, max: 60,  color: '#E67E22' },
+                { label: '61–90d', min: 61, max: 90,  color: RED },
+                { label: '90d+',   min: 91, max: 9999, color: RED },
+              ]
+              return (
+                <>
+                  {/* Aging buckets */}
+                  <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
+                    {buckets.map(b => {
+                      const total = arInvoices.filter(i => i.days_overdue >= b.min && i.days_overdue <= b.max).reduce((s, i) => s + i.amount_due, 0)
+                      if (total === 0) return null
+                      return (
+                        <div key={b.label} style={{ flex: 1, minWidth: 70, background: b.color + '15', border: `1px solid ${b.color}30`, borderRadius: 6, padding: '7px 10px' }}>
+                          <div style={{ fontSize: 10, color: '#666', marginBottom: 2 }}>{b.label}</div>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: b.color }}>{fmt(total)}</div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                  <table className="tbl">
+                    <thead>
+                      <tr>
+                        <th>Invoice</th>
+                        <th>Customer</th>
+                        <th className="r">Amount</th>
+                        <th className="r">Days OD</th>
+                        <th className="r">Due</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {arInvoices.sort((a, b) => b.days_overdue - a.days_overdue).map(inv => (
+                        <tr key={inv.invoice_id}>
+                          <td style={{ fontSize: 11, color: '#888' }}>{inv.invoice_number}</td>
+                          <td>{inv.contact_name}</td>
+                          <td className="r">{fmt(inv.amount_due)}</td>
+                          <td className="r">
+                            <span className={inv.days_overdue > 60 ? 'dn' : inv.days_overdue > 30 ? 'warn' : ''}>{inv.days_overdue}d</span>
+                          </td>
+                          <td className="r" style={{ fontSize: 11, color: '#888' }}>{inv.due_date}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </>
+              )
+            })()}
           </div>
         </div>
       </div>

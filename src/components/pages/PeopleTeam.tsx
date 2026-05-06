@@ -30,6 +30,40 @@ export default function PeopleTeam({ data }: { data: DashboardData }) {
         <div className="dsb-item"><div className="dsb-dot" /><span className="dsb-label">Master Papi</span><span>{formatSyncTime(data.syncMetadata, 'masterpapi')}</span></div>
       </div>
 
+      {/* Team Roster */}
+      <div className="panel" style={{ marginBottom: 16 }}>
+        <div className="ph"><span className="pt">Team Roster</span><span className="pg">May 2026</span></div>
+        <div className="pb" style={{ padding: 0 }}>
+          <table className="tbl" style={{ margin: 0 }}>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Role</th>
+                <th>Focus</th>
+                <th className="c">Type</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[
+                { name: 'Ethan',  role: 'CEO / Founder',         focus: 'Strategy, sales, commercial, finance',           type: 'Full-time' },
+                { name: 'Mark',   role: 'Head of Operations',    focus: 'Production, warehouse, dispatch, procurement',   type: 'Full-time' },
+                { name: 'Richard',role: 'Finance & Costing',     focus: 'Margin modelling, COGS, cost reviews',            type: 'Part-time' },
+                { name: 'OP Digital', role: 'Marketing Agency',  focus: 'Brand, paid media, EDM, PR, website',            type: 'Agency' },
+              ].map(m => (
+                <tr key={m.name}>
+                  <td style={{ fontWeight: 600 }}>{m.name}</td>
+                  <td style={{ fontSize: 12 }}>{m.role}</td>
+                  <td style={{ fontSize: 11, color: 'var(--mid)' }}>{m.focus}</td>
+                  <td className="c">
+                    <span className={`tag ${m.type === 'Full-time' ? 'tag-green' : m.type === 'Part-time' ? 'tag-blue' : 'tag-grey'}`}>{m.type}</span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       {/* KPI Row */}
       <div className="kpi-row cols-4">
         <div className="kpi">
