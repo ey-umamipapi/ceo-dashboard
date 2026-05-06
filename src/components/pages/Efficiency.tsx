@@ -36,18 +36,35 @@ export default function Efficiency({ data }: { data: DashboardData }) {
 
   // ── UPH Monthly ──────────────────────────────────────────────────────────
   const uphMonths = prodMonthly.filter(p => (p.uph ?? 0) > 0)
-  const uphData = {
+  const uphData: any = {
     labels: uphMonths.map(p => p.month?.slice(0,3) ?? ''),
-    datasets: [{
-      label: 'UPH',
-      data: uphMonths.map(p => p.uph),
-      backgroundColor: uphMonths.map(p => (p.uph ?? 0) >= 190 ? GRN : ORG),
-      borderRadius: 3,
-    }],
+    datasets: [
+      {
+        label: 'UPH',
+        data: uphMonths.map(p => p.uph),
+        backgroundColor: uphMonths.map(p => (p.uph ?? 0) >= 190 ? GRN : ORG),
+        borderRadius: 3,
+        order: 2,
+      },
+      {
+        label: 'Target 190',
+        data: uphMonths.map(() => 190),
+        type: 'line' as const,
+        borderColor: '#555',
+        borderDash: [4, 4],
+        borderWidth: 1.5,
+        pointRadius: 0,
+        fill: false,
+        order: 1,
+      },
+    ],
   }
   const uphOpts: any = {
     responsive: true, maintainAspectRatio: false,
-    plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx: any) => ` UPH: ${ctx.raw?.toFixed(1)}` } } },
+    plugins: {
+      legend: { display: true, labels: { color: '#888', font: { size: 10 }, boxWidth: 12 } },
+      tooltip: { callbacks: { label: (ctx: any) => ` ${ctx.dataset.label}: ${ctx.raw?.toFixed(1)}` } },
+    },
     scales: {
       x: { grid: { color: DL }, ticks: { color: '#666', font: { size: 10 } } },
       y: { grid: { color: DL }, ticks: { color: '#666', font: { size: 10 } }, min: 140, suggestedMax: 220 },

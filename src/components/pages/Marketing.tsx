@@ -215,17 +215,20 @@ export default function Marketing({ data }: { data: DashboardData }) {
               <div className="kpi-lbl">Total Ad Spend</div>
               <div className="kpi-val small">{fmt(selected?.total_spend ?? selected?.spend ?? 0)}</div>
             </div>
-            <div className="kpi orange">
+            <div className={`kpi ${(selected?.mer ?? 0) >= 3 ? 'orange' : (selected?.mer ?? 0) >= 2 ? '' : 'red'}`}>
               <div className="kpi-lbl">Blended MER</div>
               <div className="kpi-val small">{(selected?.mer ?? 0).toFixed(2)}×</div>
+              <div className="kpi-sub">Target &gt;3.0× <span className={(selected?.mer ?? 0) >= 3 ? 'up' : 'dn'}>{(selected?.mer ?? 0) >= 3 ? 'on target' : 'below'}</span></div>
             </div>
             <div className={`kpi ${(selected?.cpa ?? 0) <= 25 ? 'green' : (selected?.cpa ?? 0) <= 30 ? 'amber' : 'red'}`}>
               <div className="kpi-lbl">Avg CPA</div>
               <div className="kpi-val small">${(selected?.cpa ?? 0).toFixed(2)}</div>
+              <div className="kpi-sub">Target ≤$25 <span className={(selected?.cpa ?? 0) <= 25 ? 'up' : 'dn'}>{(selected?.cpa ?? 0) <= 25 ? 'on target' : '+' + ((selected?.cpa ?? 0) - 25).toFixed(2) + ' over'}</span></div>
             </div>
             <div className="kpi blue">
               <div className="kpi-lbl">Avg AOV</div>
               <div className="kpi-val small">${(selected?.aov ?? 0).toFixed(2)}</div>
+              <div className="kpi-sub">per order</div>
             </div>
             <div className="kpi purple">
               <div className="kpi-lbl">Orders</div>
@@ -245,6 +248,7 @@ export default function Marketing({ data }: { data: DashboardData }) {
                   <div className={`kpi ${metaRoas >= 2 ? 'green' : 'red'}`} style={{ padding: '10px 12px' }}>
                     <div className="kpi-lbl">ROAS</div>
                     <div className="kpi-val small">{metaRoas.toFixed(2)}×</div>
+                    <div className="kpi-sub">Target &gt;2.0×</div>
                   </div>
                   <div className="kpi" style={{ padding: '10px 12px' }}>
                     <div className="kpi-lbl">Conv Value</div>
@@ -270,6 +274,7 @@ export default function Marketing({ data }: { data: DashboardData }) {
                   <div className={`kpi ${googleRoas >= 2 ? 'green' : 'red'}`} style={{ padding: '10px 12px' }}>
                     <div className="kpi-lbl">ROAS</div>
                     <div className="kpi-val small">{googleRoas.toFixed(2)}×</div>
+                    <div className="kpi-sub">Target &gt;2.0×</div>
                   </div>
                   <div className="kpi" style={{ padding: '10px 12px' }}>
                     <div className="kpi-lbl">Conv Value</div>

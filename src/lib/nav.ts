@@ -38,9 +38,8 @@ export const SECTIONS: NavSection[] = [
     icon: '↗',
     defaultPage: 'growth',
     pages: [
-      { id: 'growth',     icon: '↗', label: 'Sales Overview' },
-      { id: 'rev-detail', icon: '↑', label: 'Revenue Detail', hideForGuest: true },
-      { id: 'ch-detail',  icon: '⇄', label: 'Channel Detail', hideForGuest: true },
+      { id: 'growth',    icon: '↗', label: 'Sales Overview' },
+      { id: 'ch-detail', icon: '⇄', label: 'Channel Detail', hideForGuest: true },
     ],
   },
   {

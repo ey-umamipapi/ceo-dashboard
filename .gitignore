@@ -37,3 +37,14 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 .env*.local
+
+# python venv & scripts artifacts
+venv/
+.claude/
+guide.txt
+login-animations-preview.html
+requirements.txt
+scripts/AUDIT_FINDINGS.md
+scripts/AUDIT_SCRIPT.sql
+scripts/inspect_output.txt
+scripts/inspect_sheets.py

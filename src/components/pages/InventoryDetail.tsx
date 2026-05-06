@@ -361,9 +361,80 @@ function DailyMetricsTable({ metrics }: { metrics: DailyMetric[] }) {
   )
 }
 
+const STATUS_CONFIG: Record<string, { color: string; bg: string; label: string }> = {
+  critical: { color: '#C0392B', bg: 'rgba(192,57,43,0.12)', label: 'Critical' },
+  watch:    { color: '#E67E22', bg: 'rgba(230,126,34,0.10)', label: 'Watch' },
+  ok:       { color: '#27AE60', bg: 'rgba(39,174,96,0.08)',  label: 'OK' },
+}
+
+const REORDER_POINTS: Record<string, number> = {
+  'OG Large': 2000, 'ES Large': 500, 'Chilli Egg Mayo': 3000,
+  'Hot Honey': 800, 'PERi Crackle 1KG': 400, 'ES Jumbo': 200, 'OG Jumbo': 200,
+}
+
+function SkuStockHealth({ items }: { items: { sku: string; available: number; status: string }[] }) {
+  if (!items.length) return null
+  return (
+    <div className="panel" style={{ marginBottom: 24 }}>
+      <div className="ph">
+        <span className="pt">SKU Stock Levels</span>
+        <span className="pg">Current snapshot</span>
+      </div>
+      <div className="pb" style={{ padding: '0' }}>
+        <table className="tbl" style={{ margin: 0 }}>
+          <thead>
+            <tr>
+              <th>SKU</th>
+              <th className="r">Available</th>
+              <th className="r">Reorder Point</th>
+              <th className="r">Days Supply</th>
+              <th className="c">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map(item => {
+              const cfg = STATUS_CONFIG[item.status] ?? STATUS_CONFIG.ok
+              const reorder = REORDER_POINTS[item.sku]
+              const belowReorder = reorder != null && item.available < reorder
+              const daysSupply = reorder != null ? Math.round((item.available / reorder) * 30) : null
+              return (
+                <tr key={item.sku} style={{ background: belowReorder ? cfg.bg : undefined }}>
+                  <td style={{ fontWeight: 600 }}>{item.sku}</td>
+                  <td className="r" style={{ color: belowReorder ? cfg.color : 'var(--creme)', fontWeight: belowReorder ? 700 : 400 }}>
+                    {item.available.toLocaleString()}
+                  </td>
+                  <td className="r" style={{ color: '#555', fontSize: 11 }}>{reorder != null ? reorder.toLocaleString() : '—'}</td>
+                  <td className="r">
+                    {daysSupply != null ? (
+                      <span style={{ color: daysSupply < 14 ? '#C0392B' : daysSupply < 30 ? '#E67E22' : '#27AE60', fontWeight: 700 }}>
+                        {daysSupply}d
+                      </span>
+                    ) : '—'}
+                  </td>
+                  <td className="c">
+                    <span style={{
+                      fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 4,
+                      background: cfg.bg, color: cfg.color,
+                      fontFamily: "'VisbyRound', sans-serif", letterSpacing: '0.06em', textTransform: 'uppercase',
+                    }}>{cfg.label}</span>
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
 export default function InventoryDetail({ data }: { data: DashboardData }) {
   const [batches, setBatches] = useState<InventoryBatch[]>(data.inventoryBatches ?? [])
   const metrics = data.dailyMetrics ?? []
+
+  const inventoryItems = data.inventorySnapshot?.length
+    ? data.inventorySnapshot.map(s => ({ sku: s.sku, available: s.available, status: s.status.toLowerCase() }))
+    : []
 
   const handleAdded = useCallback((batch: InventoryBatch) => {
     setBatches(prev => [batch, ...prev])
@@ -389,31 +460,34 @@ export default function InventoryDetail({ data }: { data: DashboardData }) {
     return d !== null && d < 90
   }).length
 
+  const criticalCount = inventoryItems.filter(i => i.status === 'critical').length
+
   return (
     <div style={{ maxWidth: 1100, margin: '0 auto' }}>
 
-      {/* Add batch form */}
-      <AddBatchForm onAdded={handleAdded} />
+      {/* SKU Stock Health — top of page */}
+      <SkuStockHealth items={inventoryItems} />
 
       {/* Summary strip */}
-      <div style={{ display: 'flex', gap: 14, marginBottom: 28, flexWrap: 'wrap', alignItems: 'center' }}>
+      <div style={{ display: 'flex', gap: 14, marginBottom: 24, flexWrap: 'wrap', alignItems: 'center' }}>
         {[
           { label: 'Active batches', val: batches.length, warn: false },
           { label: 'Expiring < 90 days', val: expiringSoon, warn: expiringSoon > 0 },
+          { label: 'SKUs critical', val: criticalCount, warn: criticalCount > 0 },
         ].map(({ label, val, warn }) => (
           <div key={label} style={{
-            background: 'var(--card)',
-            border: `1px solid ${warn ? 'rgba(192,57,43,0.3)' : 'var(--grey2)'}`,
+            background: 'var(--grey)',
+            border: `1px solid ${warn && val > 0 ? 'rgba(192,57,43,0.4)' : 'var(--grey3)'}`,
             borderRadius: 8,
             padding: '10px 18px',
           }}>
-            <div style={{ fontSize: 22, fontWeight: 700, color: warn ? '#C0392B' : 'var(--fg)', letterSpacing: '-0.02em' }}>{val}</div>
-            <div style={{ fontSize: 10, color: '#555', marginTop: 2, textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: "'VisbyRound', sans-serif", fontWeight: 600 }}>{label}</div>
+            <div style={{ fontSize: 22, fontWeight: 700, color: warn && val > 0 ? '#C0392B' : 'var(--creme)', letterSpacing: '-0.02em' }}>{val}</div>
+            <div style={{ fontSize: 10, color: 'var(--mid)', marginTop: 2, textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: "'VisbyRound', sans-serif", fontWeight: 600 }}>{label}</div>
           </div>
         ))}
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center', marginLeft: 8 }}>
           {[['< 30d','#C0392B'],['< 90d','#E67E22'],['< 180d','#F1C40F'],['180d+','#27AE60']].map(([lbl,col]) => (
-            <div key={lbl} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#555' }}>
+            <div key={lbl} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--mid)' }}>
               <div style={{ width: 7, height: 7, borderRadius: '50%', background: col }} />
               {lbl}
             </div>
@@ -422,61 +496,48 @@ export default function InventoryDetail({ data }: { data: DashboardData }) {
       </div>
 
       {/* Batch groups */}
-      <div style={{ marginBottom: 40 }}>
-        <div style={{
-          fontFamily: "'VisbyRound', sans-serif",
-          fontWeight: 700,
-          fontSize: 13,
-          letterSpacing: '0.08em',
-          textTransform: 'uppercase',
-          color: '#fff',
-          marginBottom: 18,
-        }}>
-          Active Batches
+      <div className="panel" style={{ marginBottom: 24 }}>
+        <div className="ph">
+          <span className="pt">Active Batches</span>
+          <span className="pg">{batches.length} total · {expiringSoon} expiring &lt;90d</span>
         </div>
-        {batches.length === 0 ? (
-          <div style={{ color: '#444', fontSize: 13 }}>No batches — add one above or run sync.</div>
-        ) : (
-          <div style={{ columns: '2 320px', columnGap: 20 }}>
-            {grouped.map(g => (
-              <div key={g.productType} style={{ breakInside: 'avoid', marginBottom: 24 }}>
-                <div style={{
-                  fontFamily: "'VisbyRound', sans-serif",
-                  fontWeight: 600,
-                  fontSize: 10,
-                  letterSpacing: '0.12em',
-                  textTransform: 'uppercase',
-                  color: '#444',
-                  marginBottom: 8,
-                }}>
-                  {PRODUCT_LABELS[g.productType] ?? g.productType} ({g.batches.length})
+        <div className="pb">
+          {batches.length === 0 ? (
+            <div style={{ color: 'var(--mid)', fontSize: 13 }}>No batches — add one below or run sync.</div>
+          ) : (
+            <div style={{ columns: '2 320px', columnGap: 20 }}>
+              {grouped.map(g => (
+                <div key={g.productType} style={{ breakInside: 'avoid', marginBottom: 20 }}>
+                  <div style={{
+                    fontFamily: "'VisbyRound', sans-serif", fontWeight: 600, fontSize: 10,
+                    letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--mid)', marginBottom: 8,
+                  }}>
+                    {PRODUCT_LABELS[g.productType] ?? g.productType} ({g.batches.length})
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                    {g.batches.map(b => (
+                      <BatchCard key={b.batch_code} batch={b} onDelete={handleDeleted} />
+                    ))}
+                  </div>
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                  {g.batches.map(b => (
-                    <BatchCard key={b.batch_code} batch={b} onDelete={handleDeleted} />
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
+      {/* Add batch form */}
+      <AddBatchForm onAdded={handleAdded} />
+
       {/* Daily metrics */}
-      <div>
-        <div style={{
-          fontFamily: "'VisbyRound', sans-serif",
-          fontWeight: 700,
-          fontSize: 13,
-          letterSpacing: '0.08em',
-          textTransform: 'uppercase',
-          color: '#fff',
-          marginBottom: 18,
-        }}>
-          Daily Production Metrics
-          <span style={{ fontSize: 11, color: '#444', fontWeight: 400, marginLeft: 10, textTransform: 'none', letterSpacing: 0, fontFamily: "'VisbyRound', sans-serif" }}>last 30 production days</span>
+      <div className="panel">
+        <div className="ph">
+          <span className="pt">Daily Production Metrics</span>
+          <span className="pg">Last 30 production days</span>
         </div>
-        <DailyMetricsTable metrics={metrics} />
+        <div className="pb">
+          <DailyMetricsTable metrics={metrics} />
+        </div>
       </div>
     </div>
   )

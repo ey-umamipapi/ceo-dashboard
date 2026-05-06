@@ -65,15 +65,23 @@ export default function ProductionOverview({ data }: { data: DashboardData }) {
       </div>
 
       <div className="kpi-row cols-4">
-        <div className={`kpi ${uphVal >= 190 ? 'green' : 'orange'}`}>
+        <div className={`kpi ${uphVal >= 190 ? 'green' : uphVal >= 170 ? 'orange' : uphVal > 0 ? 'red' : ''}`}>
           <div className="kpi-lbl">Latest UPH</div>
           <div className="kpi-val">{uphVal > 0 ? uphVal.toFixed(1) : '—'}</div>
-          <div className="kpi-sub">{latestProd?.month ?? '—'} · benchmark 190</div>
+          <div className="kpi-sub">
+            Target 190
+            {uphVal > 0 && <span className={uphVal >= 190 ? 'up' : 'dn'} style={{ marginLeft: 5 }}>{uphVal >= 190 ? '+' : ''}{((uphVal - 190) / 190 * 100).toFixed(1)}%</span>}
+            {' · '}{latestProd?.month ?? '—'}
+          </div>
         </div>
-        <div className={`kpi ${latestTph >= 150 ? 'green' : latestTph > 0 ? 'orange' : ''}`}>
-          <div className="kpi-lbl">Latest Run Tins/Hr</div>
+        <div className={`kpi ${latestTph >= 150 ? 'green' : latestTph >= 130 ? 'orange' : latestTph > 0 ? 'red' : ''}`}>
+          <div className="kpi-lbl">Latest Tins/Hr</div>
           <div className="kpi-val">{latestTph > 0 ? latestTph.toFixed(1) : '—'}</div>
-          <div className="kpi-sub">{latestRun ? new Date(latestRun.run_date).toLocaleDateString('en-AU', { day: 'numeric', month: 'short' }) : '—'}</div>
+          <div className="kpi-sub">
+            Target 150
+            {latestTph > 0 && <span className={latestTph >= 150 ? 'up' : 'dn'} style={{ marginLeft: 5 }}>{latestTph >= 150 ? '+' : ''}{((latestTph - 150) / 150 * 100).toFixed(1)}%</span>}
+            {latestRun ? ' · ' + new Date(latestRun.run_date).toLocaleDateString('en-AU', { day: 'numeric', month: 'short' }) : ''}
+          </div>
         </div>
         <div className="kpi blue">
           <div className="kpi-lbl">Total Tins YTD</div>

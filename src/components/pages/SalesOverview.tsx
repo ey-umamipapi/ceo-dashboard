@@ -1,8 +1,9 @@
 'use client'
 
+import { useState } from 'react'
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, LineElement, PointElement, ArcElement, Title, Tooltip, Legend, Filler } from 'chart.js'
 import { Line, Doughnut, Bar } from 'react-chartjs-2'
-import { DashboardData, RevenueMonth } from '@/types'
+import { DashboardData, RevenueMonth, RevenueWeek } from '@/types'
 import { fmt, pct, pctFmt, CHANNELS_DEF } from '@/lib/utils'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, LineElement, PointElement, ArcElement, Title, Tooltip, Legend, Filler)
@@ -34,10 +35,20 @@ function getChannelKey(ch: typeof CHANNELS_DEF[0], row: RevenueMonth): number {
   return row.other ?? 0
 }
 
+const CHANNEL_COLORS_WEEKLY: Record<string, { border: string; bg: string }> = {
+  direct:  { border: '#2980B9', bg: 'rgba(41,128,185,0.4)' },
+  coles:   { border: '#C0392B', bg: 'rgba(192,57,43,0.4)' },
+  nandos:  { border: '#E67E22', bg: 'rgba(230,126,34,0.4)' },
+  distrbn: { border: '#8E44AD', bg: 'rgba(142,68,173,0.4)' },
+  other:   { border: '#27AE60', bg: 'rgba(39,174,96,0.4)' },
+}
+
 export default function SalesOverview({ data, filterYear }: Props) {
+  const [showWeekly, setShowWeekly] = useState(false)
   const rows: RevenueMonth[] = (filterYear === 'fy26' ? data.fy26 : data.fy25) ?? []
   const fy25 = data.fy25 ?? []
   const fy26 = data.fy26 ?? []
+  const weekly: RevenueWeek[] = data.weekly ?? []
 
   const nonMtd = rows.filter(m => !m.mtd)
   const mtdRow = fy26.find(m => m.mtd)
@@ -194,6 +205,47 @@ export default function SalesOverview({ data, filterYear }: Props) {
           </div>
         </div>
       </div>
+
+      {/* Weekly Revenue — collapsible */}
+      {weekly.length > 0 && (() => {
+        const last13 = weekly.slice(-13)
+        const weekRangeLabel = last13.length > 0 ? `${last13[0].week_label} – ${last13[last13.length - 1].week_label}` : ''
+        const weeklyChartData = {
+          labels: last13.map(w => w.week_label),
+          datasets: (['direct', 'coles', 'nandos', 'distrbn', 'other'] as const).map(ch => ({
+            label: ch.charAt(0).toUpperCase() + ch.slice(1),
+            data: last13.map(w => w[ch]),
+            borderColor: CHANNEL_COLORS_WEEKLY[ch].border,
+            backgroundColor: CHANNEL_COLORS_WEEKLY[ch].bg,
+            tension: 0.3, fill: true, stack: 'w', pointRadius: 2,
+            pointBackgroundColor: CHANNEL_COLORS_WEEKLY[ch].border,
+          })),
+        }
+        const weeklyOpts: any = {
+          responsive: true, maintainAspectRatio: false,
+          plugins: {
+            legend: { display: true, position: 'bottom', labels: { color: '#aaa', font: { size: 10 }, boxWidth: 12, padding: 10 } },
+            tooltip: { callbacks: { label: (ctx: any) => ` ${ctx.dataset.label}: ${fmt(ctx.raw)}` } },
+          },
+          scales: {
+            x: { stacked: true, grid: { color: DL }, ticks: { color: '#666', font: { size: 9 }, maxRotation: 45 } },
+            y: { stacked: true, grid: { color: DL }, ticks: { color: '#666', font: { size: 9 }, callback: (v: number) => fmt(v) } },
+          },
+        }
+        return (
+          <div className="panel" style={{ marginBottom: 16 }}>
+            <div className="ph" style={{ cursor: 'pointer' }} onClick={() => setShowWeekly(v => !v)}>
+              <span className="pt">Weekly Revenue — Last 13 Weeks</span>
+              <span className="pg">{showWeekly ? weekRangeLabel : '▸ expand'}</span>
+            </div>
+            {showWeekly && (
+              <div className="pb">
+                <div className="chart-h240"><Line data={weeklyChartData} options={weeklyOpts} /></div>
+              </div>
+            )}
+          </div>
+        )
+      })()}
 
       {/* Channel Performance Table */}
       <div className="panel">

@@ -141,15 +141,25 @@ export default function FinancialControl({ data }: { data: DashboardData }) {
 
       {/* KPI Row */}
       <div className="kpi-row cols-3">
-        <div className="kpi orange">
+        <div className={`kpi ${(latestPL?.gpm ?? 51) >= 50 ? 'orange' : 'red'}`}>
           <div className="kpi-lbl">GP Margin ({latestMonthLabel})</div>
           <div className="kpi-val">{latestPL ? latestPL.gpm.toFixed(1) + '%' : '51.0%'}</div>
-          <div className="kpi-sub">{latestMonthLabel} — {livePL.length > 0 ? 'live from Xero' : 'last extracted'}</div>
+          <div className="kpi-sub">
+            Target &gt;50%
+            <span className={(latestPL?.gpm ?? 51) >= 50 ? 'up' : 'dn'} style={{ marginLeft: 5 }}>
+              {((latestPL?.gpm ?? 51) - 50).toFixed(1)}pp {(latestPL?.gpm ?? 51) >= 50 ? 'above' : 'below'}
+            </span>
+          </div>
         </div>
-        <div className="kpi orange">
+        <div className={`kpi ${(latestPL?.nopm ?? 35) >= 25 ? 'orange' : (latestPL?.nopm ?? 35) >= 15 ? '' : 'red'}`}>
           <div className="kpi-lbl">Net Op Margin ({latestMonthLabel})</div>
           <div className="kpi-val">{latestPL ? latestPL.nopm.toFixed(1) + '%' : '35.0%'}</div>
-          <div className="kpi-sub">{latestMonthLabel} — {livePL.length > 0 ? 'live from Xero' : 'last extracted'}</div>
+          <div className="kpi-sub">
+            Target &gt;25%
+            <span className={(latestPL?.nopm ?? 35) >= 25 ? 'up' : 'dn'} style={{ marginLeft: 5 }}>
+              {((latestPL?.nopm ?? 35) - 25).toFixed(1)}pp {(latestPL?.nopm ?? 35) >= 25 ? 'above' : 'below'}
+            </span>
+          </div>
         </div>
         <div className="kpi orange">
           <div className="kpi-lbl">Largest AP Category</div>
