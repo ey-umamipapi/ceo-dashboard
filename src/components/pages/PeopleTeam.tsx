@@ -1,7 +1,57 @@
 'use client'
 
-import { DashboardData } from '@/types'
+import { DashboardData, ProductionMonth } from '@/types'
 import { MARK_KPIS, PERF_LOG } from '@/lib/utils'
+
+const FY26_MONTHS = ['Jul','Aug','Sep','Oct','Nov','Dec','Jan','Feb','Mar','Apr','May','Jun']
+
+type ScheduleStatus = 'active' | 'part' | 'leave' | 'agency' | '—'
+
+const STATUS_STYLE: Record<ScheduleStatus, { bg: string; color: string; label: string }> = {
+  active:  { bg: 'rgba(39,174,96,0.18)',   color: '#27AE60', label: 'Active'  },
+  part:    { bg: 'rgba(41,128,185,0.18)',   color: '#2980B9', label: 'Part'    },
+  leave:   { bg: 'rgba(100,100,100,0.18)', color: '#777',    label: 'Leave'   },
+  agency:  { bg: 'rgba(142,68,173,0.18)',  color: '#8E44AD', label: 'Active'  },
+  '—':     { bg: 'transparent',            color: '#444',    label: '—'       },
+}
+
+const SCHEDULE: { name: string; role: string; months: Record<string, ScheduleStatus>; note?: string }[] = [
+  {
+    name: 'Ethan', role: 'CEO / Founder',
+    months: { Jul:'active',Aug:'active',Sep:'active',Oct:'active',Nov:'active',Dec:'leave',Jan:'active',Feb:'active',Mar:'active',Apr:'active',May:'active',Jun:'active' },
+    note: 'Dec: annual leave',
+  },
+  {
+    name: 'Mark', role: 'Head of Ops',
+    months: { Jul:'active',Aug:'active',Sep:'active',Oct:'active',Nov:'active',Dec:'leave',Jan:'active',Feb:'active',Mar:'active',Apr:'active',May:'active',Jun:'active' },
+    note: 'Dec: annual leave',
+  },
+  {
+    name: 'Richard', role: 'Finance / Costing',
+    months: { Jul:'part',Aug:'part',Sep:'part',Oct:'active',Nov:'active',Dec:'leave',Jan:'active',Feb:'part',Mar:'active',Apr:'part',May:'part',Jun:'part' },
+    note: 'Part-time engagement',
+  },
+  {
+    name: 'OP Digital', role: 'Marketing Agency',
+    months: { Jul:'agency',Aug:'agency',Sep:'agency',Oct:'agency',Nov:'agency',Dec:'leave',Jan:'agency',Feb:'agency',Mar:'agency',Apr:'agency',May:'agency',Jun:'agency' },
+    note: 'Dec: agency shutdown',
+  },
+]
+
+function ScheduleCell({ status }: { status: ScheduleStatus }) {
+  const s = STATUS_STYLE[status]
+  return (
+    <td style={{ textAlign: 'center', padding: '5px 4px' }}>
+      <div style={{
+        display: 'inline-block', fontSize: 9, fontWeight: 700,
+        padding: '2px 6px', borderRadius: 3,
+        background: s.bg, color: s.color,
+        fontFamily: "'VisbyRound', sans-serif", letterSpacing: '0.04em',
+        minWidth: 36,
+      }}>{s.label}</div>
+    </td>
+  )
+}
 
 function formatSyncTime(syncMetadata: any[] | undefined, source: string): string {
   if (!syncMetadata || syncMetadata.length === 0) return 'Not synced'
@@ -61,6 +111,100 @@ export default function PeopleTeam({ data }: { data: DashboardData }) {
               ))}
             </tbody>
           </table>
+        </div>
+      </div>
+
+      {/* FY26 Employee Schedule */}
+      <div className="panel" style={{ marginBottom: 16 }}>
+        <div className="ph"><span className="pt">Employee Schedule</span><span className="pg">FY26 · Jul 2025 – Jun 2026</span></div>
+        <div className="pb" style={{ padding: 0, overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 700 }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid var(--row-sep)' }}>
+                <th style={{ textAlign: 'left', padding: '6px 14px', fontSize: 11, color: 'var(--mid)', fontWeight: 500, width: 130 }}>Person</th>
+                {FY26_MONTHS.map(mo => (
+                  <th key={mo} style={{ textAlign: 'center', padding: '6px 4px', fontSize: 11, color: 'var(--mid)', fontWeight: 500 }}>{mo}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {SCHEDULE.map(person => (
+                <tr key={person.name} style={{ borderBottom: '1px solid var(--row-sep)' }}>
+                  <td style={{ padding: '5px 14px' }}>
+                    <div style={{ fontWeight: 600, fontSize: 12, color: 'var(--creme)' }}>{person.name}</div>
+                    <div style={{ fontSize: 10, color: 'var(--mid)' }}>{person.role}</div>
+                  </td>
+                  {FY26_MONTHS.map(mo => (
+                    <ScheduleCell key={mo} status={person.months[mo] ?? '—'} />
+                  ))}
+                </tr>
+              ))}
+              {/* Production floor row from live data */}
+              {prodMonthly.length > 0 && (() => {
+                const byMonth: Record<string, ProductionMonth> = {}
+                for (const m of prodMonthly) {
+                  const mo = m.month?.slice(0, 3)
+                  if (mo) byMonth[mo] = m
+                }
+                return (
+                  <tr style={{ borderBottom: '1px solid var(--row-sep)', background: 'rgba(255,255,255,0.01)' }}>
+                    <td style={{ padding: '5px 14px' }}>
+                      <div style={{ fontWeight: 600, fontSize: 12, color: 'var(--creme)' }}>Prod Floor</div>
+                      <div style={{ fontSize: 10, color: 'var(--mid)' }}>Avg headcount</div>
+                    </td>
+                    {FY26_MONTHS.map(mo => {
+                      const m = byMonth[mo]
+                      return (
+                        <td key={mo} style={{ textAlign: 'center', padding: '5px 4px' }}>
+                          {m ? (
+                            <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--creme)' }}>{m.staff}</div>
+                          ) : (
+                            <div style={{ fontSize: 11, color: '#444' }}>—</div>
+                          )}
+                        </td>
+                      )
+                    })}
+                  </tr>
+                )
+              })()}
+              {/* Prod days row */}
+              {prodMonthly.length > 0 && (() => {
+                const byMonth: Record<string, ProductionMonth> = {}
+                for (const m of prodMonthly) {
+                  const mo = m.month?.slice(0, 3)
+                  if (mo) byMonth[mo] = m
+                }
+                return (
+                  <tr>
+                    <td style={{ padding: '5px 14px' }}>
+                      <div style={{ fontWeight: 600, fontSize: 12, color: 'var(--creme)' }}>Prod Days</div>
+                      <div style={{ fontSize: 10, color: 'var(--mid)' }}>Runs logged</div>
+                    </td>
+                    {FY26_MONTHS.map(mo => {
+                      const m = byMonth[mo]
+                      return (
+                        <td key={mo} style={{ textAlign: 'center', padding: '5px 4px' }}>
+                          <div style={{ fontSize: 11, color: m ? 'var(--mid)' : '#444' }}>{m ? m.days : '—'}</div>
+                        </td>
+                      )
+                    })}
+                  </tr>
+                )
+              })()}
+            </tbody>
+          </table>
+        </div>
+        {/* Legend */}
+        <div style={{ padding: '8px 14px 10px', display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+          {(Object.entries(STATUS_STYLE) as [ScheduleStatus, typeof STATUS_STYLE[ScheduleStatus]][])
+            .filter(([k]) => k !== '—')
+            .map(([key, s]) => (
+              <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                <div style={{ width: 10, height: 10, borderRadius: 2, background: s.bg, border: `1px solid ${s.color}40` }} />
+                <span style={{ fontSize: 10, color: '#666' }}>{key === 'agency' ? 'Agency active' : s.label}</span>
+              </div>
+            ))
+          }
         </div>
       </div>
 
