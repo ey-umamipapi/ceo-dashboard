@@ -1,56 +1,31 @@
 'use client'
 
-import { DashboardData, ProductionMonth } from '@/types'
+import { DashboardData } from '@/types'
 import { MARK_KPIS, PERF_LOG } from '@/lib/utils'
 
 const FY26_MONTHS = ['Jul','Aug','Sep','Oct','Nov','Dec','Jan','Feb','Mar','Apr','May','Jun']
 
-type ScheduleStatus = 'active' | 'part' | 'leave' | 'agency' | '—'
-
-const STATUS_STYLE: Record<ScheduleStatus, { bg: string; color: string; label: string }> = {
-  active:  { bg: 'rgba(39,174,96,0.18)',   color: '#27AE60', label: 'Active'  },
-  part:    { bg: 'rgba(41,128,185,0.18)',   color: '#2980B9', label: 'Part'    },
-  leave:   { bg: 'rgba(100,100,100,0.18)', color: '#777',    label: 'Leave'   },
-  agency:  { bg: 'rgba(142,68,173,0.18)',  color: '#8E44AD', label: 'Active'  },
-  '—':     { bg: 'transparent',            color: '#444',    label: '—'       },
-}
-
-const SCHEDULE: { name: string; role: string; months: Record<string, ScheduleStatus>; note?: string }[] = [
-  {
-    name: 'Ethan', role: 'CEO / Founder',
-    months: { Jul:'active',Aug:'active',Sep:'active',Oct:'active',Nov:'active',Dec:'leave',Jan:'active',Feb:'active',Mar:'active',Apr:'active',May:'active',Jun:'active' },
-    note: 'Dec: annual leave',
-  },
-  {
-    name: 'Mark', role: 'Head of Ops',
-    months: { Jul:'active',Aug:'active',Sep:'active',Oct:'active',Nov:'active',Dec:'leave',Jan:'active',Feb:'active',Mar:'active',Apr:'active',May:'active',Jun:'active' },
-    note: 'Dec: annual leave',
-  },
-  {
-    name: 'Richard', role: 'Finance / Costing',
-    months: { Jul:'part',Aug:'part',Sep:'part',Oct:'active',Nov:'active',Dec:'leave',Jan:'active',Feb:'part',Mar:'active',Apr:'part',May:'part',Jun:'part' },
-    note: 'Part-time engagement',
-  },
-  {
-    name: 'OP Digital', role: 'Marketing Agency',
-    months: { Jul:'agency',Aug:'agency',Sep:'agency',Oct:'agency',Nov:'agency',Dec:'leave',Jan:'agency',Feb:'agency',Mar:'agency',Apr:'agency',May:'agency',Jun:'agency' },
-    note: 'Dec: agency shutdown',
-  },
+// Factory staff hours per month — sourced from Employee Schedule FY26_LIVE.xlsx (weekday + Saturday)
+const FACTORY_SCHEDULE: { name: string; hrs: Record<string, number>; total: number }[] = [
+  { name: 'Kritsana',     total: 1162.0, hrs: { Jul:44.8, Aug:124.5, Sep:109.5, Oct:125.2, Nov:105.0, Dec:169.7, Jan:90.2, Feb:142.8, Mar:74.8, Apr:138.0, May:37.5 } },
+  { name: 'Wilson',       total: 1470.5, hrs: { Jul:66.5, Aug:192.8, Sep:131.0, Oct:127.8, Nov:142.0, Dec:177.7, Jan:90.0, Feb:143.2, Mar:226.2, Apr:137.5, May:35.8 } },
+  { name: 'Eduard',       total: 1406.0, hrs: { Jul:29.0, Aug:216.8, Sep:139.2, Oct:100.2, Nov:139.0, Dec:175.5, Jan:80.2, Feb:141.2, Mar:220.2, Apr:134.7, May:30.0 } },
+  { name: 'Sorrapong',    total:  866.0, hrs: { Jul:74.8, Aug:212.0, Sep:140.0, Oct:134.5, Nov:150.2, Dec:154.5 } },
+  { name: 'Jonathan',     total:  691.2, hrs: { Dec:138.5, Jan:76.0, Feb:135.2, Mar:228.2, Apr:75.5, May:37.8 } },
+  { name: 'Lal Ma Ngaih', total:  300.7, hrs: { Aug:175.5, Sep:125.2 } },
+  { name: 'Thanaphon',    total:  376.7, hrs: { Aug:153.5, Sep:140.0, Oct:83.2 } },
+  { name: 'Patrick',      total:  461.4, hrs: { Dec:87.2, Jan:90.2, Feb:142.8, Mar:141.2 } },
+  { name: 'Ciro',         total:  350.2, hrs: { Mar:166.2, Apr:146.2, May:37.8 } },
+  { name: 'Leangheng',    total:  484.8, hrs: { Jul:38.0, Aug:128.0, Sep:81.8, Oct:43.5, Nov:68.5, Dec:110.7, Jan:14.3 } },
+  { name: 'Jackson',      total:  119.0, hrs: { Dec:53.0, Jan:35.2, Feb:30.8 } },
+  { name: 'Diego',        total:  112.5, hrs: { Apr:97.5, May:15.0 } },
 ]
 
-function ScheduleCell({ status }: { status: ScheduleStatus }) {
-  const s = STATUS_STYLE[status]
-  return (
-    <td style={{ textAlign: 'center', padding: '5px 4px' }}>
-      <div style={{
-        display: 'inline-block', fontSize: 9, fontWeight: 700,
-        padding: '2px 6px', borderRadius: 3,
-        background: s.bg, color: s.color,
-        fontFamily: "'VisbyRound', sans-serif", letterSpacing: '0.04em',
-        minWidth: 36,
-      }}>{s.label}</div>
-    </td>
-  )
+function hrsColor(h: number): { bg: string; color: string } {
+  if (h === 0) return { bg: 'transparent', color: '#333' }
+  if (h >= 110) return { bg: 'rgba(39,174,96,0.15)', color: '#27AE60' }
+  if (h >= 50)  return { bg: 'rgba(41,128,185,0.15)', color: '#2980B9' }
+  return { bg: 'rgba(230,126,34,0.15)', color: '#E67E22' }
 }
 
 function formatSyncTime(syncMetadata: any[] | undefined, source: string): string {
@@ -114,97 +89,59 @@ export default function PeopleTeam({ data }: { data: DashboardData }) {
         </div>
       </div>
 
-      {/* FY26 Employee Schedule */}
+      {/* FY26 Factory Staff Schedule */}
       <div className="panel" style={{ marginBottom: 16 }}>
-        <div className="ph"><span className="pt">Employee Schedule</span><span className="pg">FY26 · Jul 2025 – Jun 2026</span></div>
+        <div className="ph">
+          <span className="pt">Factory Staff Schedule</span>
+          <span className="pg">FY26 · hours worked (weekday + Saturday)</span>
+        </div>
         <div className="pb" style={{ padding: 0, overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 700 }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 760 }}>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--row-sep)' }}>
-                <th style={{ textAlign: 'left', padding: '6px 14px', fontSize: 11, color: 'var(--mid)', fontWeight: 500, width: 130 }}>Person</th>
+                <th style={{ textAlign: 'left', padding: '6px 14px', fontSize: 11, color: 'var(--mid)', fontWeight: 500, width: 120 }}>Staff</th>
                 {FY26_MONTHS.map(mo => (
-                  <th key={mo} style={{ textAlign: 'center', padding: '6px 4px', fontSize: 11, color: 'var(--mid)', fontWeight: 500 }}>{mo}</th>
+                  <th key={mo} style={{ textAlign: 'center', padding: '6px 4px', fontSize: 11, color: 'var(--mid)', fontWeight: 500, width: 52 }}>{mo}</th>
                 ))}
+                <th style={{ textAlign: 'right', padding: '6px 14px', fontSize: 11, color: 'var(--mid)', fontWeight: 500 }}>Total</th>
               </tr>
             </thead>
             <tbody>
-              {SCHEDULE.map(person => (
+              {FACTORY_SCHEDULE.map(person => (
                 <tr key={person.name} style={{ borderBottom: '1px solid var(--row-sep)' }}>
-                  <td style={{ padding: '5px 14px' }}>
-                    <div style={{ fontWeight: 600, fontSize: 12, color: 'var(--creme)' }}>{person.name}</div>
-                    <div style={{ fontSize: 10, color: 'var(--mid)' }}>{person.role}</div>
-                  </td>
-                  {FY26_MONTHS.map(mo => (
-                    <ScheduleCell key={mo} status={person.months[mo] ?? '—'} />
-                  ))}
+                  <td style={{ padding: '5px 14px', fontWeight: 600, fontSize: 12, color: 'var(--creme)', whiteSpace: 'nowrap' }}>{person.name}</td>
+                  {FY26_MONTHS.map(mo => {
+                    const h = person.hrs[mo] ?? 0
+                    const { bg, color } = hrsColor(h)
+                    return (
+                      <td key={mo} style={{ textAlign: 'center', padding: '4px 3px' }}>
+                        {h > 0 ? (
+                          <div style={{ fontSize: 10, fontWeight: 600, padding: '2px 4px', borderRadius: 3, background: bg, color, display: 'inline-block', minWidth: 34 }}>
+                            {h % 1 === 0 ? h : h.toFixed(0)}h
+                          </div>
+                        ) : (
+                          <div style={{ fontSize: 10, color: '#333' }}>—</div>
+                        )}
+                      </td>
+                    )
+                  })}
+                  <td style={{ textAlign: 'right', padding: '5px 14px', fontSize: 11, fontWeight: 600, color: 'var(--mid)', whiteSpace: 'nowrap' }}>{person.total.toFixed(0)}h</td>
                 </tr>
               ))}
-              {/* Production floor row from live data */}
-              {prodMonthly.length > 0 && (() => {
-                const byMonth: Record<string, ProductionMonth> = {}
-                for (const m of prodMonthly) {
-                  const mo = m.month?.slice(0, 3)
-                  if (mo) byMonth[mo] = m
-                }
-                return (
-                  <tr style={{ borderBottom: '1px solid var(--row-sep)', background: 'rgba(255,255,255,0.01)' }}>
-                    <td style={{ padding: '5px 14px' }}>
-                      <div style={{ fontWeight: 600, fontSize: 12, color: 'var(--creme)' }}>Prod Floor</div>
-                      <div style={{ fontSize: 10, color: 'var(--mid)' }}>Avg headcount</div>
-                    </td>
-                    {FY26_MONTHS.map(mo => {
-                      const m = byMonth[mo]
-                      return (
-                        <td key={mo} style={{ textAlign: 'center', padding: '5px 4px' }}>
-                          {m ? (
-                            <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--creme)' }}>{m.staff}</div>
-                          ) : (
-                            <div style={{ fontSize: 11, color: '#444' }}>—</div>
-                          )}
-                        </td>
-                      )
-                    })}
-                  </tr>
-                )
-              })()}
-              {/* Prod days row */}
-              {prodMonthly.length > 0 && (() => {
-                const byMonth: Record<string, ProductionMonth> = {}
-                for (const m of prodMonthly) {
-                  const mo = m.month?.slice(0, 3)
-                  if (mo) byMonth[mo] = m
-                }
-                return (
-                  <tr>
-                    <td style={{ padding: '5px 14px' }}>
-                      <div style={{ fontWeight: 600, fontSize: 12, color: 'var(--creme)' }}>Prod Days</div>
-                      <div style={{ fontSize: 10, color: 'var(--mid)' }}>Runs logged</div>
-                    </td>
-                    {FY26_MONTHS.map(mo => {
-                      const m = byMonth[mo]
-                      return (
-                        <td key={mo} style={{ textAlign: 'center', padding: '5px 4px' }}>
-                          <div style={{ fontSize: 11, color: m ? 'var(--mid)' : '#444' }}>{m ? m.days : '—'}</div>
-                        </td>
-                      )
-                    })}
-                  </tr>
-                )
-              })()}
             </tbody>
           </table>
         </div>
-        {/* Legend */}
         <div style={{ padding: '8px 14px 10px', display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-          {(Object.entries(STATUS_STYLE) as [ScheduleStatus, typeof STATUS_STYLE[ScheduleStatus]][])
-            .filter(([k]) => k !== '—')
-            .map(([key, s]) => (
-              <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                <div style={{ width: 10, height: 10, borderRadius: 2, background: s.bg, border: `1px solid ${s.color}40` }} />
-                <span style={{ fontSize: 10, color: '#666' }}>{key === 'agency' ? 'Agency active' : s.label}</span>
-              </div>
-            ))
-          }
+          {[
+            { label: '110h+ (full-time equiv)', bg: 'rgba(39,174,96,0.15)', color: '#27AE60' },
+            { label: '50–109h (regular casual)', bg: 'rgba(41,128,185,0.15)', color: '#2980B9' },
+            { label: '<50h (light month)',       bg: 'rgba(230,126,34,0.15)', color: '#E67E22' },
+          ].map(l => (
+            <div key={l.label} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+              <div style={{ width: 10, height: 10, borderRadius: 2, background: l.bg, border: `1px solid ${l.color}40` }} />
+              <span style={{ fontSize: 10, color: '#666' }}>{l.label}</span>
+            </div>
+          ))}
         </div>
       </div>
 
