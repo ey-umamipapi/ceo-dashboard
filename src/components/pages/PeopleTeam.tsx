@@ -19,6 +19,10 @@ export default function PeopleTeam({ data }: { data: DashboardData }) {
   const mtIssues = pendingIssues.filter(i => i.ownership === 'MT' || i.ownership?.includes('Mark'))
   const delegations = signals.filter(s => s.signal_type === 'delegation' && !s.archived)
 
+  // Live KPI data from prodMonthly — latest month by sort_order
+  const prodMonthly = data.prodMonthly ?? []
+  const latestProdMonth = [...prodMonthly].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)).at(-1)
+
   return (
     <div className="page">
       {/* DSB */}
@@ -30,13 +34,13 @@ export default function PeopleTeam({ data }: { data: DashboardData }) {
       <div className="kpi-row cols-4">
         <div className="kpi">
           <div className="kpi-lbl">Avg Staff on Floor</div>
-          <div className="kpi-val">5.3</div>
+          <div className="kpi-val">{latestProdMonth?.staff ?? '—'}</div>
           <div className="kpi-sub">Production days</div>
         </div>
         <div className="kpi blue">
           <div className="kpi-lbl">Prod Hours Latest Month</div>
-          <div className="kpi-val">113h</div>
-          <div className="kpi-sub">Jan 2026</div>
+          <div className="kpi-val">{latestProdMonth?.hours ? `${Math.round(latestProdMonth.hours)}h` : '—'}</div>
+          <div className="kpi-sub">{latestProdMonth?.month ?? '—'}</div>
         </div>
         <div className={`kpi ${mtIssues.length > 3 ? 'red' : mtIssues.length > 1 ? 'orange' : 'green'}`}>
           <div className="kpi-lbl">Mark's Open Issues</div>
@@ -58,7 +62,7 @@ export default function PeopleTeam({ data }: { data: DashboardData }) {
             <span className="pt">Mark's Open Issues</span>
             <span className="pg">{mtIssues.length} pending</span>
           </div>
-          <div className="pb">
+          <div className="pb min-h-[120px]">
             {mtIssues.length === 0 ? (
               <div style={{ fontSize: 12, color: 'var(--mid)' }}>No open issues.</div>
             ) : (
@@ -120,7 +124,7 @@ export default function PeopleTeam({ data }: { data: DashboardData }) {
             <span className="pt">What I Need from Mark This Week</span>
             <span className="pg">{delegations.length} open</span>
           </div>
-          <div className="pb">
+          <div className="pb min-h-[120px]">
             {delegations.length === 0 ? (
               <div style={{ fontSize: 12, color: 'var(--mid)' }}>No active delegations.</div>
             ) : (

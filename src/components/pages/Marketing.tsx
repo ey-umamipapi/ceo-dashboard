@@ -2,9 +2,9 @@
 
 import { useState } from 'react'
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, LineElement, PointElement, ArcElement, Title, Tooltip, Legend, Filler } from 'chart.js'
-import { Line, Bar } from 'react-chartjs-2'
-import { DashboardData, MarketingMonth, MarketingDaily } from '@/types'
-import { fmt, pct, pctFmt, SOCIAL_DATA } from '@/lib/utils'
+import { Line } from 'react-chartjs-2'
+import { DashboardData, MarketingMonth, MarketingDaily, ShopifyCohort } from '@/types'
+import { fmt } from '@/lib/utils'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, LineElement, PointElement, ArcElement, Title, Tooltip, Legend, Filler)
 
@@ -17,9 +17,13 @@ function formatSyncTime(syncMetadata: any[] | undefined, source: string): string
 }
 
 const DL = 'rgba(255,255,255,0.04)'
-const RED = '#C0392B', RLT = '#E74C3C', CRM = '#F5E6D0', GRN = '#27AE60', ORG = '#E67E22', BLU = '#2980B9', PRP = '#8E44AD'
+const RED = '#C0392B', RLT = '#E74C3C', GRN = '#27AE60', ORG = '#E67E22', BLU = '#2980B9'
+
+const META_MONTHLY_BUDGET = 22000
+const GOOGLE_MONTHLY_BUDGET = 8000
 
 type Period = 'lastmonth' | 'month' | 'ytd'
+type Tab = 'paid' | 'ecomm'
 
 function mkDailyLabels(count: number) {
   return Array.from({ length: count }, (_, i) => String(i + 1))
@@ -29,7 +33,10 @@ function dailyLineOpts(color: string): any {
   return {
     responsive: true,
     maintainAspectRatio: false,
-    plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx: any) => ' $' + ctx.raw } } },
+    plugins: {
+      legend: { display: true, position: 'bottom' as const, labels: { color: '#aaa', font: { size: 9 }, boxWidth: 10, padding: 8 } },
+      tooltip: { callbacks: { label: (ctx: any) => ` ${ctx.dataset.label}: $${ctx.raw}` } },
+    },
     scales: {
       x: { grid: { color: DL }, ticks: { color: '#666', font: { size: 9 } } },
       y: { grid: { color: DL }, ticks: { color: '#666', font: { size: 9 }, callback: (v: number) => '$' + v } },
@@ -37,74 +44,90 @@ function dailyLineOpts(color: string): any {
   }
 }
 
-const STORE_MONTHS = [
-  { month: 'Jan 2026', rev: 45321, orders: 312, mer: 4.42, spend: 10249, cpa: 32.85, aov: 145.26, conv: 2.45, mtd: false },
-  { month: 'Feb 2026', rev: 56892, orders: 387, mer: 3.19, spend: 17832, cpa: 23.15, aov: 147.01, conv: 2.89, mtd: false },
-  { month: 'Mar 2026', rev: 46800, orders: 323, mer: 2.60, spend: 18000, cpa: 26.01, aov: 144.89, conv: 2.67, mtd: false },
-  { month: 'Apr 2026', rev: 10072, orders: 68, mer: 5.05, spend: 1994, cpa: 29.32, aov: 148.12, conv: 2.91, mtd: true },
-]
+function fmtPct(val: number): string {
+  return (val * 100).toFixed(1) + '%'
+}
 
 export default function Marketing({ data }: { data: DashboardData }) {
   const [period, setPeriod] = useState<Period>('lastmonth')
+  const [tab, setTab] = useState<Tab>('paid')
+  const shopifyCohorts: ShopifyCohort[] = data.shopifyCohorts ?? []
 
   const mktData = data.marketing ?? []
   const dailyData = data.marketingDaily ?? []
 
-  // Extract daily data from Supabase by channel
-  const metaDailyRows = dailyData.filter(d => d.channel === 'Meta').sort((a, b) => a.date.localeCompare(b.date))
-  const googleDailyRows = dailyData.filter(d => d.channel === 'Google').sort((a, b) => a.date.localeCompare(b.date))
+  const MONTH_ABBR = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+  const now           = new Date()
+  const curMonthAbbr  = MONTH_ABBR[now.getMonth()]
+  const prevMonthAbbr = MONTH_ABBR[(now.getMonth() + 11) % 12]
 
-  // Helper to extract daily spend array for a period
-  function getDailySpendForPeriod(rows: MarketingDaily[], month: string): number[] {
-    return rows
-      .filter(r => r.date.startsWith(month === 'Apr 2026' ? '2026-04' : month === 'Mar 2026' ? '2026-03' : month === 'Feb 2026' ? '2026-02' : '2026-01'))
-      .map(r => r.spend)
+  function monthPrefix(offset: number): string {
+    const d = new Date(now.getFullYear(), now.getMonth() + offset, 1)
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
   }
 
-  // Period selection — use monthly data from Supabase
+  const fyStartYear = now.getMonth() >= 6 ? now.getFullYear() : now.getFullYear() - 1
+  const ytdLabel    = `YTD Jul ${fyStartYear}–${prevMonthAbbr}`
+
+  const metaDailyRows   = dailyData.filter(d => d.channel === 'Meta').sort((a, b) => a.date.localeCompare(b.date))
+  const googleDailyRows = dailyData.filter(d => d.channel === 'Google').sort((a, b) => a.date.localeCompare(b.date))
+
+  function getDailySpendForPeriod(rows: MarketingDaily[], prefix: string): number[] {
+    return rows.filter(r => r.date.startsWith(prefix)).map(r => r.spend)
+  }
+
   let selected: any
   if (period === 'month') {
-    selected = mktData.find(m => m.mtd) || { month: 'Apr 2026', rev: 0, orders: 0, spend: 0, mer: 0, cpa: 0, aov: 0, conv: 0, mtd: true }
+    selected = mktData.find(m => m.mtd) || { month: curMonthAbbr, rev: 0, orders: 0, total_spend: 0, mer: 0, cpa: 0, aov: 0, mtd: true }
   } else if (period === 'lastmonth') {
-    selected = mktData.find(m => m.month === 'Mar' || m.month === 'Mar 2026') || { month: 'Mar 2026', rev: 0, orders: 0, spend: 0, mer: 0, cpa: 0, aov: 0, conv: 0, mtd: false }
+    selected = mktData.filter(m => !m.mtd).at(-1) || { month: prevMonthAbbr, rev: 0, orders: 0, total_spend: 0, mer: 0, cpa: 0, aov: 0, mtd: false }
   } else {
-    // YTD = sum from all non-MTD rows
     const rows = mktData.filter(m => !m.mtd)
     selected = {
-      month: 'YTD Jan–Apr',
+      month: ytdLabel,
       rev: rows.reduce((s, r) => s + r.rev, 0),
       orders: rows.reduce((s, r) => s + r.orders, 0),
-      spend: rows.reduce((s, r) => s + r.spend, 0),
-      mer: 0, cpa: 0, aov: 0, conv: 0, mtd: false,
+      spend: rows.reduce((s, r) => s + r.total_spend, 0),
+      mer: 0, cpa: 0, aov: 0, mtd: false,
     }
     selected.mer = selected.spend > 0 ? selected.rev / selected.spend : 0
     selected.cpa = selected.orders > 0 ? selected.spend / selected.orders : 0
     selected.aov = selected.orders > 0 ? selected.rev / selected.orders : 0
   }
 
-  // Daily data for selected period
-  const monthKey = period === 'month' ? 'Apr 2026' : period === 'lastmonth' ? 'Mar 2026' : 'Jan 2026'
-  const dailyRev = getDailySpendForPeriod(dailyData, monthKey) // Use spend as proxy for revenue trend
-  const dailyMeta = getDailySpendForPeriod(metaDailyRows, monthKey)
-  const dailyGoogle = getDailySpendForPeriod(googleDailyRows, monthKey)
-  const dayLabels = mkDailyLabels(Math.max(dailyRev.length, dailyMeta.length, dailyGoogle.length))
+  const dailyPrefix   = period === 'month' ? monthPrefix(0) : period === 'lastmonth' ? monthPrefix(-1) : monthPrefix(-3)
+  const dailyRev      = getDailySpendForPeriod(dailyData, dailyPrefix)
+  const dailyMeta     = getDailySpendForPeriod(metaDailyRows, dailyPrefix)
+  const dailyGoogle   = getDailySpendForPeriod(googleDailyRows, dailyPrefix)
+  const dayLabels     = mkDailyLabels(Math.max(dailyRev.length, dailyMeta.length, dailyGoogle.length))
 
-  const ecommDailyData = {
-    labels: dayLabels,
-    datasets: [{ label: 'Revenue', data: dailyRev, borderColor: RED, backgroundColor: 'rgba(192,57,43,0.1)', tension: 0.35, fill: true, pointRadius: 1.5, pointBackgroundColor: RED }],
+  function cumulativeSum(arr: number[]): number[] {
+    return arr.reduce<number[]>((acc, val, i) => { acc.push((acc[i - 1] ?? 0) + val); return acc }, [])
   }
 
-  const metaDailyData = {
+  const metaCumulative  = cumulativeSum(dailyMeta)
+  const googleCumulative = cumulativeSum(dailyGoogle)
+  const metaPace   = dailyMeta.map((_, i) => Math.round((META_MONTHLY_BUDGET / 30) * (i + 1)))
+  const googlePace = dailyGoogle.map((_, i) => Math.round((GOOGLE_MONTHLY_BUDGET / 30) * (i + 1)))
+
+  const metaDailyChartData = {
     labels: mkDailyLabels(dailyMeta.length),
-    datasets: [{ label: 'Meta Spend', data: dailyMeta, borderColor: BLU, backgroundColor: 'rgba(41,128,185,0.1)', tension: 0.3, fill: true, pointRadius: 1, pointBackgroundColor: BLU }],
+    datasets: [
+      { label: 'Meta Daily Spend', data: dailyMeta, borderColor: BLU, backgroundColor: 'rgba(41,128,185,0.1)', tension: 0.3, fill: true, pointRadius: 1, pointBackgroundColor: BLU },
+      { label: 'Cumulative Spend', data: metaCumulative, borderColor: BLU, backgroundColor: 'transparent', tension: 0.3, fill: false, pointRadius: 0, borderWidth: 2 },
+      { label: 'Budget pace', data: metaPace, borderColor: '#888', backgroundColor: 'transparent', tension: 0, fill: false, pointRadius: 0, borderDash: [4, 4], borderWidth: 1.5 },
+    ],
   }
 
-  const googleDailyData = {
+  const googleDailyChartData = {
     labels: mkDailyLabels(dailyGoogle.length),
-    datasets: [{ label: 'Google Spend', data: dailyGoogle, borderColor: GRN, backgroundColor: 'rgba(39,174,96,0.1)', tension: 0.3, fill: true, pointRadius: 1, pointBackgroundColor: GRN }],
+    datasets: [
+      { label: 'Google Daily Spend', data: dailyGoogle, borderColor: GRN, backgroundColor: 'rgba(39,174,96,0.1)', tension: 0.3, fill: true, pointRadius: 1, pointBackgroundColor: GRN },
+      { label: 'Cumulative Spend', data: googleCumulative, borderColor: GRN, backgroundColor: 'transparent', tension: 0.3, fill: false, pointRadius: 0, borderWidth: 2 },
+      { label: 'Budget pace', data: googlePace, borderColor: '#888', backgroundColor: 'transparent', tension: 0, fill: false, pointRadius: 0, borderDash: [4, 4], borderWidth: 1.5 },
+    ],
   }
 
-  // ROAS & MER trend
   const trendData = {
     labels: mktData.map(m => m.month.slice(0, 3)),
     datasets: [
@@ -121,237 +144,279 @@ export default function Marketing({ data }: { data: DashboardData }) {
     },
   }
 
-  // Social data for period
-  const socialPeriod = period === 'month' ? SOCIAL_DATA.apr : period === 'lastmonth' ? SOCIAL_DATA.mar : SOCIAL_DATA.feb
+  const ecommDailyData = {
+    labels: dayLabels,
+    datasets: [{ label: 'Revenue', data: dailyRev, borderColor: RED, backgroundColor: 'rgba(192,57,43,0.1)', tension: 0.35, fill: true, pointRadius: 1.5, pointBackgroundColor: RED }],
+  }
 
-  // Marketing flags from data
-  const mktSignals = (data.signals ?? []).filter(s => s.signal_type === 'marketing' && !s.archived)
+  const metaPeriodRows    = metaDailyRows.filter(r => r.date.startsWith(dailyPrefix))
+  const googlePeriodRows  = googleDailyRows.filter(r => r.date.startsWith(dailyPrefix))
+  const metaSpend         = metaPeriodRows.reduce((s, r) => s + r.spend, 0)
+  const googleSpend       = googlePeriodRows.reduce((s, r) => s + r.spend, 0)
+  const metaImpressions   = metaPeriodRows.reduce((s, r) => s + (r.impressions ?? 0), 0)
+  const googleImpressions = googlePeriodRows.reduce((s, r) => s + (r.impressions ?? 0), 0)
 
-  // Calculate Meta and Google spend from daily data
-  const monthKeyForCalc = period === 'month' ? '2026-04' : period === 'lastmonth' ? '2026-03' : '2026-02'
-  const metaSpend = metaDailyRows.filter(r => r.date.startsWith(monthKeyForCalc)).reduce((s, r) => s + r.spend, 0)
-  const googleSpend = googleDailyRows.filter(r => r.date.startsWith(monthKeyForCalc)).reduce((s, r) => s + r.spend, 0)
-
-  // Use ROAS from monthly data if available, fallback to estimates
-  const monthData = period === 'month' ? mktData.find(m => m.mtd) : period === 'lastmonth' ? mktData.find(m => m.month === 'Mar' || m.month === 'Mar 2026') : mktData[0]
-  const metaRoas = monthData?.meta_roas ?? 2.4
+  const monthData  = period === 'month' ? mktData.find(m => m.mtd) : period === 'lastmonth' ? mktData.filter(m => !m.mtd).at(-1) : mktData[0]
+  const metaRoas   = monthData?.meta_roas ?? 2.4
   const googleRoas = monthData?.google_roas ?? 1.9
+
+  const mktSignals = (data.signals ?? []).filter(s => s.signal_type === 'marketing' && !s.archived)
 
   return (
     <div className="page">
       {/* DSB */}
       <div className="dsb">
         <div className="dsb-item"><div className="dsb-dot" /><span className="dsb-label">eCommerce</span><span>{formatSyncTime(data.syncMetadata, 'marketing')}</span></div>
-        <div className="dsb-item"><div className="dsb-dot" /><span className="dsb-label">Social</span><span>{formatSyncTime(data.syncMetadata, 'seo')}</span></div>
+        <div className="dsb-item"><div className="dsb-dot" /><span className="dsb-label">Paid Media</span><span>{formatSyncTime(data.syncMetadata, 'marketing')}</span></div>
       </div>
 
-      {/* Command Block */}
+      {/* Intel */}
       <div className="cmd-block">
-        <div className="cmd-block-title">Marketing Intelligence</div>
+        <div className="cmd-block-title">Paid Media Intelligence</div>
         <div className="flag-row">
-          <div className="flag-item red"><span className="flag-icon">⚠</span><span>Mar CPA $26.01 — up from $23.15 Feb. Above $25 threshold needs attention. Conv rate 2.67% also declining.</span></div>
-          <div className="flag-item red"><span className="flag-icon">⚠</span><span>Google ROAS Mar 1.62 — below Meta 1.54. Both below 2.0 threshold. Check campaign health.</span></div>
-          <div className="flag-item green"><span className="flag-icon">↑</span><span>MER 3.19 Feb was the best month. Apr MTD MER 5.05 — early but encouraging.</span></div>
-          <div className="flag-item blue"><span className="flag-icon">→</span><span>Review Google campaign structure — $7,168 spend at 1.62 ROAS is the weakest channel this month.</span></div>
+          <div className="flag-item red"><span className="flag-icon">⚠</span><span>Mar CPA $26.01 — up from $23.15 Feb. Above $25 threshold. Conv rate 2.67% declining.</span></div>
+          <div className="flag-item red"><span className="flag-icon">⚠</span><span>Google ROAS Mar 1.62 — below 2.0 threshold. Review campaign structure.</span></div>
+          <div className="flag-item green"><span className="flag-icon">↑</span><span>Apr MTD MER 5.05 — best early read of FY26. Watch CPA as spend scales.</span></div>
+          <div className="flag-item blue"><span className="flag-icon">→</span><span>Review Google campaign structure — $7,168 spend at 1.62 ROAS is weakest channel this month.</span></div>
         </div>
       </div>
 
-      {/* Period Toggle */}
+      {/* Anchor tabs */}
+      <div style={{ marginBottom: 16 }}>
+        <div className="fg">
+          <span className="fgl">View</span>
+          <button className={`fchip${tab === 'paid' ? ' active' : ''}`} onClick={() => setTab('paid')}>Paid Ads</button>
+          <button className={`fchip${tab === 'ecomm' ? ' active' : ''}`} onClick={() => setTab('ecomm')}>eCommerce</button>
+        </div>
+      </div>
+
+      {/* Period toggle — both tabs */}
       <div style={{ marginBottom: 16 }}>
         <div className="fg">
           <span className="fgl">Period</span>
           {(['month', 'lastmonth', 'ytd'] as Period[]).map(p => (
-            <button key={p} className={`fchip ${period === p ? 'active' : ''}`} onClick={() => setPeriod(p)}>
-              {p === 'month' ? 'Apr MTD' : p === 'lastmonth' ? 'Mar' : 'YTD Jan–Apr'}
+            <button key={p} className={`fchip${period === p ? ' active' : ''}`} onClick={() => setPeriod(p)}>
+              {p === 'month' ? `${curMonthAbbr} MTD` : p === 'lastmonth' ? prevMonthAbbr : ytdLabel}
             </button>
           ))}
         </div>
       </div>
 
-      {/* KPI Row cols-6 */}
-      <div className="kpi-row cols-6">
-        <div className="kpi">
-          <div className="kpi-lbl">eComm Revenue</div>
-          <div className="kpi-val small">{fmt(selected?.rev ?? 0)}</div>
-          <div className="kpi-sub">{selected?.month}</div>
-        </div>
-        <div className="kpi red">
-          <div className="kpi-lbl">Total Ad Spend</div>
-          <div className="kpi-val small">{fmt(selected?.spend ?? 0)}</div>
-        </div>
-        <div className="kpi orange">
-          <div className="kpi-lbl">Blended MER</div>
-          <div className="kpi-val small">{(selected?.mer ?? 0).toFixed(2)}×</div>
-        </div>
-        <div className={`kpi ${(selected?.cpa ?? 0) <= 25 ? 'green' : (selected?.cpa ?? 0) <= 30 ? 'amber' : 'red'}`}>
-          <div className="kpi-lbl">Avg CPA</div>
-          <div className="kpi-val small">${(selected?.cpa ?? 0).toFixed(2)}</div>
-        </div>
-        <div className="kpi blue">
-          <div className="kpi-lbl">Avg AOV</div>
-          <div className="kpi-val small">${(selected?.aov ?? 0).toFixed(2)}</div>
-        </div>
-        <div className="kpi purple">
-          <div className="kpi-lbl">Orders</div>
-          <div className="kpi-val small">{selected?.orders ?? 0}</div>
-        </div>
-      </div>
-
-      {/* Meta + Google panels */}
-      <div className="g2" style={{ marginBottom: 16 }}>
-        <div className="panel">
-          <div className="ph"><span className="pt">Meta Ads</span><span className="pg">{selected?.month}</span></div>
-          <div className="pb">
-            <div className="kpi-row cols-3" style={{ marginBottom: 12 }}>
-              <div className="kpi" style={{ padding: '10px 12px' }}>
-                <div className="kpi-lbl">Spend</div>
-                <div className="kpi-val small">{fmt(metaSpend)}</div>
-              </div>
-              <div className={`kpi ${metaRoas >= 2 ? 'green' : 'red'}`} style={{ padding: '10px 12px' }}>
-                <div className="kpi-lbl">ROAS</div>
-                <div className="kpi-val small">{metaRoas.toFixed(2)}×</div>
-              </div>
-              <div className="kpi" style={{ padding: '10px 12px' }}>
-                <div className="kpi-lbl">Conv Value</div>
-                <div className="kpi-val small">{fmt(metaSpend * metaRoas)}</div>
-              </div>
+      {/* ── PAID ADS TAB ─────────────────────────────────────────────────── */}
+      {tab === 'paid' && (
+        <>
+          <div className="kpi-row cols-6" style={{ marginBottom: 16 }}>
+            <div className="kpi">
+              <div className="kpi-lbl">eComm Revenue</div>
+              <div className="kpi-val small">{fmt(selected?.rev ?? 0)}</div>
+              <div className="kpi-sub">{selected?.month}</div>
             </div>
-            <div className="chart-h120"><Line data={metaDailyData} options={dailyLineOpts(BLU)} /></div>
-          </div>
-        </div>
-        <div className="panel">
-          <div className="ph"><span className="pt">Google Ads</span><span className="pg">{selected?.month}</span></div>
-          <div className="pb">
-            <div className="kpi-row cols-3" style={{ marginBottom: 12 }}>
-              <div className="kpi" style={{ padding: '10px 12px' }}>
-                <div className="kpi-lbl">Spend</div>
-                <div className="kpi-val small">{fmt(googleSpend)}</div>
-              </div>
-              <div className={`kpi ${googleRoas >= 2 ? 'green' : 'red'}`} style={{ padding: '10px 12px' }}>
-                <div className="kpi-lbl">ROAS</div>
-                <div className="kpi-val small">{googleRoas.toFixed(2)}×</div>
-              </div>
-              <div className="kpi" style={{ padding: '10px 12px' }}>
-                <div className="kpi-lbl">Conv Value</div>
-                <div className="kpi-val small">{fmt(googleSpend * googleRoas)}</div>
-              </div>
+            <div className="kpi red">
+              <div className="kpi-lbl">Total Ad Spend</div>
+              <div className="kpi-val small">{fmt(selected?.total_spend ?? selected?.spend ?? 0)}</div>
             </div>
-            <div className="chart-h120"><Line data={googleDailyData} options={dailyLineOpts(GRN)} /></div>
+            <div className="kpi orange">
+              <div className="kpi-lbl">Blended MER</div>
+              <div className="kpi-val small">{(selected?.mer ?? 0).toFixed(2)}×</div>
+            </div>
+            <div className={`kpi ${(selected?.cpa ?? 0) <= 25 ? 'green' : (selected?.cpa ?? 0) <= 30 ? 'amber' : 'red'}`}>
+              <div className="kpi-lbl">Avg CPA</div>
+              <div className="kpi-val small">${(selected?.cpa ?? 0).toFixed(2)}</div>
+            </div>
+            <div className="kpi blue">
+              <div className="kpi-lbl">Avg AOV</div>
+              <div className="kpi-val small">${(selected?.aov ?? 0).toFixed(2)}</div>
+            </div>
+            <div className="kpi purple">
+              <div className="kpi-lbl">Orders</div>
+              <div className="kpi-val small">{selected?.orders ?? 0}</div>
+            </div>
           </div>
-        </div>
-      </div>
 
-      {/* Daily eCommerce Revenue */}
-      <div className="panel" style={{ marginBottom: 16 }}>
-        <div className="ph"><span className="pt">Daily eCommerce Revenue</span><span className="pg">{selected?.month}</span></div>
-        <div className="pb">
-          <div className="chart-h200"><Line data={ecommDailyData} options={dailyLineOpts(RED)} /></div>
-        </div>
-      </div>
-
-      {/* ROAS/MER Trend + Store Performance Table */}
-      <div className="g2" style={{ marginBottom: 16 }}>
-        <div className="panel">
-          <div className="ph"><span className="pt">MER Monthly Trend</span></div>
-          <div className="pb">
-            <div className="chart-h200"><Line data={trendData} options={trendOpts} /></div>
-          </div>
-        </div>
-        <div className="panel">
-          <div className="ph"><span className="pt">Store Performance</span></div>
-          <div className="pb">
-            <table className="tbl">
-              <thead>
-                <tr>
-                  <th>Month</th>
-                  <th className="r">Revenue</th>
-                  <th className="r">Spend</th>
-                  <th className="r">MER</th>
-                  <th className="r">CPA</th>
-                  <th className="r">Orders</th>
-                </tr>
-              </thead>
-              <tbody>
-                {mktData.map(m => (
-                  <tr key={m.month}>
-                    <td>{m.month}{m.mtd ? ' *' : ''}</td>
-                    <td className="r">{fmt(m.rev)}</td>
-                    <td className="r">{fmt(m.total_spend)}</td>
-                    <td className="r"><span className={m.mer >= 3 ? 'up' : m.mer >= 2 ? 'warn' : 'dn'}>{m.mer.toFixed(2)}×</span></td>
-                    <td className="r"><span className={m.cpa <= 25 ? 'up' : m.cpa <= 30 ? 'warn' : 'dn'}>${m.cpa.toFixed(2)}</span></td>
-                    <td className="r">{m.orders}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      {/* Content Pipeline + Instagram */}
-      <div className="g2" style={{ marginBottom: 16 }}>
-        <div className="panel">
-          <div className="ph">
-            <span className="pt">Content Pipeline</span>
-            <span className="pg">{socialPeriod.month}</span>
-          </div>
-          <div className="pb">
-            {socialPeriod.posts.map(post => (
-              <div key={post.id} className="feed-item">
-                <div className="feed-date" style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span>{post.id} · {post.pillar}</span>
-                  <span className={`tag ${post.status === 'POSTED' ? 'tag-green' : post.status === 'SHOT' ? 'tag-blue' : 'tag-grey'}`}>{post.status}</span>
+          <div className="g2" style={{ marginBottom: 16 }}>
+            <div className="panel">
+              <div className="ph"><span className="pt">Meta Ads</span><span className="pg">{selected?.month}</span></div>
+              <div className="pb">
+                <div className="kpi-row cols-4" style={{ marginBottom: 12 }}>
+                  <div className="kpi" style={{ padding: '10px 12px' }}>
+                    <div className="kpi-lbl">Spend</div>
+                    <div className="kpi-val small">{fmt(metaSpend)}</div>
+                  </div>
+                  <div className={`kpi ${metaRoas >= 2 ? 'green' : 'red'}`} style={{ padding: '10px 12px' }}>
+                    <div className="kpi-lbl">ROAS</div>
+                    <div className="kpi-val small">{metaRoas.toFixed(2)}×</div>
+                  </div>
+                  <div className="kpi" style={{ padding: '10px 12px' }}>
+                    <div className="kpi-lbl">Conv Value</div>
+                    <div className="kpi-val small">{fmt(metaSpend * metaRoas)}</div>
+                  </div>
+                  <div className="kpi blue" style={{ padding: '10px 12px' }}>
+                    <div className="kpi-lbl">Impressions</div>
+                    <div className="kpi-val small">{metaImpressions > 0 ? metaImpressions.toLocaleString() : '—'}</div>
+                  </div>
                 </div>
-                <div className="feed-text">{post.idea}</div>
-                {post.scheduled && <div className="feed-meta">Scheduled: {post.scheduled}</div>}
+                <div className="chart-h140"><Line data={metaDailyChartData} options={dailyLineOpts(BLU)} /></div>
               </div>
-            ))}
-          </div>
-        </div>
-        <div className="panel">
-          <div className="ph"><span className="pt">Instagram Performance</span><span className="pg">Feb 2026</span></div>
-          <div className="pb">
-            <table className="tbl">
-              <thead>
-                <tr>
-                  <th>Post</th>
-                  <th className="r">Views</th>
-                  <th className="r">Likes</th>
-                  <th className="r">Saves</th>
-                  <th className="r">Shares</th>
-                </tr>
-              </thead>
-              <tbody>
-                {SOCIAL_DATA.feb.posts.map(p => (
-                  <tr key={p.id}>
-                    <td style={{ maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.idea}</td>
-                    <td className="r">{p.views?.toLocaleString()}</td>
-                    <td className="r">{p.likes?.toLocaleString()}</td>
-                    <td className="r">{p.saves?.toLocaleString()}</td>
-                    <td className="r">{p.shares?.toLocaleString()}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
+            </div>
 
-      {/* Marketing Flags */}
-      {mktSignals.length > 0 && (
-        <div className="panel">
-          <div className="ph"><span className="pt">Marketing Flags</span></div>
-          <div className="pb">
-            <div className="flag-row">
-              {mktSignals.map((s, i) => (
-                <div key={s.id ?? i} className="flag-item blue">
-                  <span className="flag-icon">→</span>
-                  <span>{s.text}</span>
+            <div className="panel">
+              <div className="ph"><span className="pt">Google Ads</span><span className="pg">{selected?.month}</span></div>
+              <div className="pb">
+                <div className="kpi-row cols-4" style={{ marginBottom: 12 }}>
+                  <div className="kpi" style={{ padding: '10px 12px' }}>
+                    <div className="kpi-lbl">Spend</div>
+                    <div className="kpi-val small">{fmt(googleSpend)}</div>
+                  </div>
+                  <div className={`kpi ${googleRoas >= 2 ? 'green' : 'red'}`} style={{ padding: '10px 12px' }}>
+                    <div className="kpi-lbl">ROAS</div>
+                    <div className="kpi-val small">{googleRoas.toFixed(2)}×</div>
+                  </div>
+                  <div className="kpi" style={{ padding: '10px 12px' }}>
+                    <div className="kpi-lbl">Conv Value</div>
+                    <div className="kpi-val small">{fmt(googleSpend * googleRoas)}</div>
+                  </div>
+                  <div className="kpi green" style={{ padding: '10px 12px' }}>
+                    <div className="kpi-lbl">Impressions</div>
+                    <div className="kpi-val small">{googleImpressions > 0 ? googleImpressions.toLocaleString() : '—'}</div>
+                  </div>
                 </div>
-              ))}
+                <div className="chart-h140"><Line data={googleDailyChartData} options={dailyLineOpts(GRN)} /></div>
+              </div>
             </div>
           </div>
-        </div>
+
+          <div className="panel">
+            <div className="ph"><span className="pt">MER Monthly Trend</span></div>
+            <div className="pb">
+              <div className="chart-h200"><Line data={trendData} options={trendOpts} /></div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* ── ECOMMERCE TAB ────────────────────────────────────────────────── */}
+      {tab === 'ecomm' && (
+        <>
+          <div className="kpi-row cols-4" style={{ marginBottom: 16 }}>
+            <div className="kpi">
+              <div className="kpi-lbl">Revenue</div>
+              <div className="kpi-val small">{fmt(selected?.rev ?? 0)}</div>
+              <div className="kpi-sub">{selected?.month}</div>
+            </div>
+            <div className="kpi purple">
+              <div className="kpi-lbl">Orders</div>
+              <div className="kpi-val small">{selected?.orders ?? 0}</div>
+            </div>
+            <div className="kpi blue">
+              <div className="kpi-lbl">Avg AOV</div>
+              <div className="kpi-val small">${(selected?.aov ?? 0).toFixed(2)}</div>
+            </div>
+            <div className={`kpi ${(selected?.cpa ?? 0) <= 25 ? 'green' : (selected?.cpa ?? 0) <= 30 ? 'amber' : 'red'}`}>
+              <div className="kpi-lbl">CPA</div>
+              <div className="kpi-val small">${(selected?.cpa ?? 0).toFixed(2)}</div>
+            </div>
+          </div>
+
+          <div className="panel" style={{ marginBottom: 16 }}>
+            <div className="ph"><span className="pt">Daily eCommerce Revenue</span><span className="pg">{selected?.month}</span></div>
+            <div className="pb">
+              <div className="chart-h200"><Line data={ecommDailyData} options={dailyLineOpts(RED)} /></div>
+            </div>
+          </div>
+
+          <div className="panel" style={{ marginBottom: 16 }}>
+            <div className="ph"><span className="pt">Store Performance</span></div>
+            <div className="pb">
+              <table className="tbl">
+                <thead>
+                  <tr>
+                    <th>Month</th>
+                    <th className="r">Revenue</th>
+                    <th className="r">Spend</th>
+                    <th className="r">MER</th>
+                    <th className="r">CPA</th>
+                    <th className="r">Orders</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {mktData.map(m => (
+                    <tr key={m.month}>
+                      <td>{m.month}{m.mtd ? ' *' : ''}</td>
+                      <td className="r">{fmt(m.rev)}</td>
+                      <td className="r">{fmt(m.total_spend)}</td>
+                      <td className="r"><span className={m.mer >= 3 ? 'up' : m.mer >= 2 ? 'warn' : 'dn'}>{m.mer.toFixed(2)}×</span></td>
+                      <td className="r"><span className={m.cpa <= 25 ? 'up' : m.cpa <= 30 ? 'warn' : 'dn'}>${m.cpa.toFixed(2)}</span></td>
+                      <td className="r">{m.orders}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="panel" style={{ marginBottom: 16 }}>
+            <div className="ph">
+              <span className="pt">Customer Cohorts</span>
+              <span className="pg">FY26 Shopify retention</span>
+            </div>
+            <div className="pb">
+              {shopifyCohorts.length === 0 ? (
+                <div style={{ color: '#666', fontSize: 12, padding: '12px 0', textAlign: 'center' }}>
+                  Cohort data not yet synced — run <code style={{ color: '#aaa' }}>python scripts/sync_shopify.py</code>
+                </div>
+              ) : (
+                <table className="tbl">
+                  <thead>
+                    <tr>
+                      <th>Month</th>
+                      <th className="r">New Customers</th>
+                      <th className="r">30-day Retention</th>
+                      <th className="r">90-day Retention</th>
+                      <th className="r">Avg LTV</th>
+                      <th className="r">Avg Orders</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {shopifyCohorts.map(c => (
+                      <tr key={c.cohort_month}>
+                        <td>{c.cohort_month}</td>
+                        <td className="r">{c.first_purchase_count}</td>
+                        <td className="r">
+                          <span className={c.repeat_rate_30d >= 0.2 ? 'up' : c.repeat_rate_30d >= 0.1 ? 'warn' : 'dn'}>
+                            {fmtPct(c.repeat_rate_30d)}
+                          </span>
+                        </td>
+                        <td className="r">
+                          <span className={c.repeat_rate_90d >= 0.3 ? 'up' : c.repeat_rate_90d >= 0.15 ? 'warn' : 'dn'}>
+                            {fmtPct(c.repeat_rate_90d)}
+                          </span>
+                        </td>
+                        <td className="r">{fmt(c.avg_ltv)}</td>
+                        <td className="r">{c.avg_orders.toFixed(1)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+
+          {mktSignals.length > 0 && (
+            <div className="panel">
+              <div className="ph"><span className="pt">Marketing Flags</span></div>
+              <div className="pb">
+                <div className="flag-row">
+                  {mktSignals.map((s, i) => (
+                    <div key={s.id ?? i} className="flag-item blue">
+                      <span className="flag-icon">→</span>
+                      <span>{s.text}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   )

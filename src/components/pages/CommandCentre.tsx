@@ -72,33 +72,38 @@ export default function CommandCentre({ data }: { data: DashboardData }) {
   const fy26 = data.fy26 ?? []
   const fy25 = data.fy25 ?? []
 
-  // YTD total FY26 (non-MTD months + MTD)
+  // ── Dynamic date helpers ──────────────────────────────────────────────────
+  const MONTH_ABBR = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+  const now = new Date()
+  const curMonthAbbr  = MONTH_ABBR[now.getMonth()]
+  const prevMonthAbbr = MONTH_ABBR[(now.getMonth() + 11) % 12]
+  const mtdDaysElapsed = now.getDate() - 1  // completed days (exclude today)
+
+  // ── YTD total FY26 (non-MTD months + MTD) ───────────────────────────────
   const ytdTotal = fy26.reduce((s, m) => s + (m.total ?? 0), 0)
 
-  // FY25 same months (Jul-Mar = first 9)
-  const fy25Base = fy25.slice(0, 9).reduce((s, m) => s + (m.total ?? 0), 0)
-  const yoyPct = pct(ytdTotal, fy25Base)
+  // FY25 comparison: same number of elapsed FY months
+  const fy26Count = fy26.length
+  const fy25Base  = fy25.slice(0, fy26Count).reduce((s, m) => s + (m.total ?? 0), 0)
+  const yoyPct    = pct(ytdTotal, fy25Base)
 
-  // Apr MTD row
+  // MTD row = whichever row is flagged mtd
   const mtdRow = fy26.find(m => m.mtd)
-  // Mar26 row (fallback to last non-MTD)
-  const latestMonth = fy26.find(m => m.month === 'Mar' || m.month === 'Mar 2026') ?? fy26.filter(m => !m.mtd).at(-1)
-  // Feb26 row
-  const feb26 = fy26.find(m => m.month === 'Feb' || m.month === 'Feb 2026')
+  // Last complete month = last non-MTD row
+  const latestMonth = fy26.filter(m => !m.mtd).at(-1)
   // Latest production month with uph > 0
   const latestProd = [...(data.prodMonthly ?? [])].reverse().find(p => (p.uph ?? 0) > 0)
-  // Marketing Mar row
-  const mktMar = data.marketing?.find(m => m.month === 'Mar 2026' || m.month === 'Mar')
+  // Latest marketing row (last month complete)
+  const mktLatest = data.marketing?.filter(m => !m.mtd).at(-1)
 
-  // Apr projected: MTD daily run-rate × 30
-  const aprMtdDays = 8
-  const aprProjected = mtdRow ? (mtdRow.total / aprMtdDays) * 30 : 0
-  const aprPct = latestMonth ? (mtdRow?.total ?? 0) / latestMonth.total * 100 : 0
+  // MTD projected run-rate (× 30 day month)
+  const mtdProjected = mtdDaysElapsed > 0 && mtdRow ? (mtdRow.total / mtdDaysElapsed) * 30 : 0
+  const mtdPct = latestMonth && latestMonth.total > 0 ? (mtdRow?.total ?? 0) / latestMonth.total * 100 : 0
 
   // YoY ex-Metcash
   const fy26ExMeta = fy26.reduce((s, m) => s + (m.total - (m.metcash ?? 0)), 0)
-  const fy25ExMeta = fy25.slice(0, 9).reduce((s, m) => s + (m.total - (m.metcash ?? 0)), 0)
-  const yoyExMeta = pct(fy26ExMeta, fy25ExMeta)
+  const fy25ExMeta = fy25.slice(0, fy26Count).reduce((s, m) => s + (m.total - (m.metcash ?? 0)), 0)
+  const yoyExMeta  = pct(fy26ExMeta, fy25ExMeta)
 
   // Revenue status colour
   const revColor = yoyPct >= 10 ? 'green' : yoyPct >= 0 ? 'amber' : 'red'
@@ -108,8 +113,17 @@ export default function CommandCentre({ data }: { data: DashboardData }) {
   const opsColor = uphVal >= 190 ? 'green' : uphVal >= 170 ? 'amber' : 'red'
 
   // Marketing CPA
-  const cpa = mktMar?.cpa ?? 0
+  const cpa = mktLatest?.cpa ?? 0
   const mktColor = cpa <= 25 ? 'green' : cpa <= 30 ? 'amber' : 'red'
+
+  // Cash from Xero exec summary (latest month)
+  const execSummary = data.xeroExecSummary ?? []
+  const latestExec = execSummary[execSummary.length - 1]
+  const cashVal = latestExec?.cash
+  const cashLabel = cashVal != null ? `$${(cashVal / 1000).toFixed(0)}K` : '$576K'
+  const cashSub = latestExec ? `${latestExec.month} — live from Xero` : 'Static — sync pending'
+  const cashDecision = cashVal != null ? (cashVal >= 150000 ? 'Healthy cash position' : cashVal >= 80000 ? 'Monitor — getting tight' : 'Low — action required') : 'Healthy. $677K gross bank.'
+  const cashColor = cashVal != null ? (cashVal >= 150000 ? 'green' : cashVal >= 80000 ? 'amber' : 'red') : 'green'
 
   // Delegations
   const delegations = (data.signals ?? []).filter(s => s.signal_type === 'delegation' && !s.archived)
@@ -143,16 +157,16 @@ export default function CommandCentre({ data }: { data: DashboardData }) {
           <div className="status-sub">UPH vs 190 benchmark</div>
           <div className="status-decision">{uphVal >= 190 ? 'Above benchmark' : 'Below 190 target'}</div>
         </div>
-        <div className="status-card green">
-          <div className="status-label"><span className="status-dot green" />Cash</div>
-          <div className="status-value">$576K</div>
-          <div className="status-sub">Net liquidity</div>
-          <div className="status-decision">Healthy. $677K gross bank.</div>
+        <div className={`status-card ${cashColor}`}>
+          <div className="status-label"><span className={`status-dot ${cashColor}`} />Cash</div>
+          <div className="status-value">{cashLabel}</div>
+          <div className="status-sub">{cashSub}</div>
+          <div className="status-decision">{cashDecision}</div>
         </div>
         <div className={`status-card ${mktColor}`}>
           <div className="status-label"><span className={`status-dot ${mktColor}`} />Marketing Pulse</div>
           <div className="status-value">{cpa > 0 ? `$${cpa.toFixed(2)}` : '—'}</div>
-          <div className="status-sub">Mar CPA — threshold $25</div>
+          <div className="status-sub">{prevMonthAbbr} CPA — threshold $25</div>
           <div className="status-decision">{cpa <= 25 ? 'CPA in range' : 'CPA above threshold — review'}</div>
         </div>
       </div>
@@ -165,13 +179,13 @@ export default function CommandCentre({ data }: { data: DashboardData }) {
           <div className="kpi-sub"><span className={yoyPct >= 0 ? 'up' : 'dn'}>{pctFmt(yoyPct)}</span> vs FY25 same period</div>
         </div>
         <div className="kpi blue">
-          <div className="kpi-lbl">Apr MTD Revenue</div>
+          <div className="kpi-lbl">{curMonthAbbr} MTD Revenue</div>
           <div className="kpi-val">{mtdRow ? fmt(mtdRow.total) : '—'}</div>
           <div className="kpi-sub">
             <div className="prog-wrap" style={{ marginTop: 4 }}>
-              <div className="prog-fill" style={{ width: `${Math.min(aprPct, 100)}%`, background: BLU }} />
+              <div className="prog-fill" style={{ width: `${Math.min(mtdPct, 100)}%`, background: BLU }} />
             </div>
-            Proj {fmt(aprProjected)} at {aprMtdDays}d run rate
+            {mtdDaysElapsed > 0 ? `Proj ${fmt(mtdProjected)} at ${mtdDaysElapsed}d run rate` : 'First day of month'}
           </div>
         </div>
         <div className="kpi orange">
@@ -187,26 +201,30 @@ export default function CommandCentre({ data }: { data: DashboardData }) {
         <div className="panel">
           <div className="ph">
             <span className="pt">Current Month</span>
-            <span className="pg">Apr MTD / Mar Complete</span>
+            <span className="pg">{curMonthAbbr} MTD / {prevMonthAbbr} Complete</span>
           </div>
           <div className="pb">
             <div style={{ marginBottom: 14 }}>
-              <div style={{ fontSize: 12, color: 'var(--mid)', marginBottom: 4 }}>Apr MTD ({aprMtdDays} days)</div>
-              <div style={{ fontFamily: 'Plus Jakarta Sans', fontWeight: 800, fontSize: 26, color: 'var(--white)' }}>
+              <div style={{ fontSize: 12, color: 'var(--mid)', marginBottom: 4 }}>{curMonthAbbr} MTD ({mtdDaysElapsed} days)</div>
+              <div style={{ fontFamily: 'VisbyRound', fontWeight: 800, fontSize: 26, color: 'var(--white)' }}>
                 {mtdRow ? fmt(mtdRow.total) : '—'}
               </div>
               <div className="prog-wrap">
-                <div className="prog-fill" style={{ width: `${Math.min(aprPct, 100)}%` }} />
+                <div className="prog-fill" style={{ width: `${Math.min(mtdPct, 100)}%` }} />
               </div>
-              <div style={{ fontSize: 10, color: 'var(--mid)' }}>{aprPct.toFixed(0)}% of Mar pace · Proj {fmt(aprProjected)}</div>
+              <div style={{ fontSize: 10, color: 'var(--mid)' }}>{mtdPct.toFixed(0)}% of {prevMonthAbbr} pace · Proj {fmt(mtdProjected)}</div>
             </div>
             <div className="slbl">Recent Months</div>
-            {recentMonths.map(m => (
-              <div key={m.month} style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderBottom: '1px solid var(--row-sep)', fontSize: 12 }}>
-                <span style={{ color: 'var(--creme)' }}>{m.month}</span>
-                <span style={{ color: 'var(--white)', fontWeight: 600 }}>{fmt(m.total)}</span>
-              </div>
-            ))}
+            {recentMonths.length === 0 ? (
+              <p className="text-muted">No revenue data available.</p>
+            ) : (
+              recentMonths.map(m => (
+                <div key={m.month} style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderBottom: '1px solid var(--row-sep)', fontSize: 12 }}>
+                  <span style={{ color: 'var(--creme)' }}>{m.month}</span>
+                  <span style={{ color: 'var(--white)', fontWeight: 600 }}>{fmt(m.total)}</span>
+                </div>
+              ))
+            )}
           </div>
         </div>
 

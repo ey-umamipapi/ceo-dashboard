@@ -2,8 +2,8 @@ import type { Metadata } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'UmamiPapi — CEO Dashboard',
-  description: 'UmamiPapi CEO Dashboard · FY26',
+  title: 'HubPapi',
+  description: 'UmamiPapi Internal Platform · FY26',
   themeColor: '#111111',
   manifest: '/manifest.json',
   icons: {
@@ -12,7 +12,7 @@ export const metadata: Metadata = {
   other: {
     'apple-mobile-web-app-capable': 'yes',
     'apple-mobile-web-app-status-bar-style': 'black-translucent',
-    'apple-mobile-web-app-title': 'UmamiPapi CEO',
+    'apple-mobile-web-app-title': 'HubPapi',
   },
 }
 

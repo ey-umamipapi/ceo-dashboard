@@ -1,10 +1,10 @@
 'use client'
 
-import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, LineElement, PointElement, ArcElement, Title, Tooltip, Legend, Filler } from 'chart.js'
-import { Bar } from 'react-chartjs-2'
+import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, LineElement, PointElement, ArcElement, BubbleController, LogarithmicScale, Title, Tooltip, Legend, Filler } from 'chart.js'
+import { Bar, Bubble } from 'react-chartjs-2'
 import { DashboardData } from '@/types'
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, LineElement, PointElement, ArcElement, Title, Tooltip, Legend, Filler)
+ChartJS.register(CategoryScale, LinearScale, LogarithmicScale, BarElement, LineElement, PointElement, ArcElement, BubbleController, Title, Tooltip, Legend, Filler)
 
 function formatSyncTime(syncMetadata: any[] | undefined, source: string): string {
   if (!syncMetadata || syncMetadata.length === 0) return 'Not synced'
@@ -17,25 +17,14 @@ function formatSyncTime(syncMetadata: any[] | undefined, source: string): string
 const DL = 'rgba(255,255,255,0.04)'
 const RED = '#C0392B', RLT = '#E74C3C', CRM = '#F5E6D0', GRN = '#27AE60', ORG = '#E67E22', BLU = '#2980B9', PRP = '#8E44AD'
 
-const MARGIN_SKUS = [
-  { rank: 1, sku: 'Chilli Oil Jumbo', ch: 'DTC', sell: '$45.00', cogs: '$3.20', gross: 92.9, net: 84.8, vol: 908, verdict: 'scale' },
-  { rank: 2, sku: 'Chilli Oil Large', ch: 'DTC', sell: '$18.50', cogs: '$3.00', gross: 83.8, net: 81.8, vol: 40005, verdict: 'scale' },
-  { rank: 3, sku: 'Chilli Oil Large', ch: 'Wholesale', sell: '$10.00', cogs: '$3.00', gross: 70.0, net: 80.5, vol: 8000, verdict: 'scale' },
-  { rank: 4, sku: 'Chilli Oil Large', ch: 'Coles', sell: '$8.04', cogs: '$3.00', gross: 62.7, net: 65.0, vol: null, verdict: 'scale' },
-  { rank: 5, sku: 'Hot Honey', ch: 'DTC', sell: '$15.50', cogs: '$4.65', gross: 70.0, net: 70.3, vol: 5935, verdict: 'monitor' },
-  { rank: 6, sku: 'Mayo', ch: 'DTC', sell: '$14.00', cogs: '$2.91', gross: 79.2, net: 69.4, vol: null, verdict: 'scale' },
-  { rank: 7, sku: 'Mayo', ch: 'Coles', sell: '$4.58', cogs: '$2.91', gross: 36.5, net: 29.9, vol: 10764, verdict: 'fix' },
-  { rank: 8, sku: 'PERi Crackle', ch: 'Nandos', sell: '$7.30', cogs: '$4.61', gross: 36.8, net: 36.9, vol: 6282, verdict: 'monitor' },
-  { rank: 9, sku: 'PERi Seed', ch: 'Nandos', sell: '$7.80', cogs: '$5.66', gross: 27.4, net: 27.4, vol: null, verdict: 'monitor' },
-  { rank: 10, sku: 'CEM', ch: 'Unknown', sell: '—', cogs: '—', gross: null, net: null, vol: 17304, verdict: 'unknown' },
-]
-
-// Chilli Oil channel breakdown (gross margin %)
-const CO_CHANNELS = [
-  { label: 'DTC Jumbo', margin: 92.9, color: GRN },
-  { label: 'DTC Large', margin: 83.8, color: GRN },
-  { label: 'Wholesale', margin: 70.0, color: BLU },
-  { label: 'Coles', margin: 62.7, color: ORG },
+// Static rows for non-MarginPapi SKUs (kept as fallback / non-Chilli Oil data)
+const STATIC_SKUS = [
+  { sku: 'Hot Honey', ch: 'DTC', sell: '$15.50', cogs: '$4.65', gross: 70.0, net: 70.3, vol: 5935, verdict: 'monitor' },
+  { sku: 'Mayo', ch: 'DTC', sell: '$14.00', cogs: '$2.91', gross: 79.2, net: 69.4, vol: null, verdict: 'scale' },
+  { sku: 'Mayo', ch: 'Coles', sell: '$4.58', cogs: '$2.91', gross: 36.5, net: 29.9, vol: 10764, verdict: 'fix' },
+  { sku: 'PERi Crackle', ch: 'Nandos', sell: '$7.30', cogs: '$4.61', gross: 36.8, net: 36.9, vol: 6282, verdict: 'monitor' },
+  { sku: 'PERi Seed', ch: 'Nandos', sell: '$7.80', cogs: '$5.66', gross: 27.4, net: 27.4, vol: null, verdict: 'monitor' },
+  { sku: 'CEM', ch: 'Unknown', sell: '—', cogs: '—', gross: null, net: null, vol: 17304, verdict: 'unknown' },
 ]
 
 const MAYO_CHANNELS = [
@@ -113,7 +102,147 @@ function CogsList({ items }: { items: { lbl: string; pct: number }[] }) {
   )
 }
 
+function verdictFromMargin(pct: number | null): string {
+  if (pct == null) return 'unknown'
+  if (pct >= 0.70) return 'scale'
+  if (pct >= 0.50) return 'monitor'
+  return 'fix'
+}
+
+function fmtPrice(v: number | null) {
+  if (v == null) return '—'
+  return `$${v.toFixed(2)}`
+}
+
+function fmtPct(v: number | null) {
+  if (v == null) return null
+  // value is stored as decimal (0.828 = 82.8%)
+  return +(v * 100).toFixed(1)
+}
+
+// Channel colour map for bubble chart
+const CHANNEL_COLORS: Record<string, string> = {
+  'DTC':           GRN,
+  'Coles':         RED,
+  'Wholesale':     BLU,
+  'Distribution':  BLU,
+  'Nandos':        PRP,
+  "Nando's":       PRP,
+  'Foodservice':   ORG,
+}
+function channelColor(ch: string): string {
+  for (const [key, col] of Object.entries(CHANNEL_COLORS)) {
+    if (ch.toLowerCase().includes(key.toLowerCase())) return col
+  }
+  return '#888'
+}
+
 export default function MarginDetail({ data }: { data: DashboardData }) {
+  const marginSkus = data.marginSkus ?? []
+
+  // Build combined SKU rows: live Chilli Oil rows first, then static
+  const liveRows = marginSkus.map((s, i) => ({
+    sku: s.product,
+    ch: s.channel,
+    sell: fmtPrice(s.sell_price),
+    cogs: fmtPrice(s.cogs),
+    gross: fmtPct(s.margin_pct),
+    net: null as number | null,
+    vol: s.volume,
+    verdict: verdictFromMargin(s.margin_pct),
+    isLive: true,
+  }))
+
+  const staticRows = STATIC_SKUS.map(s => ({ ...s, isLive: false }))
+
+  // Merge: live rows replace any static rows with same sku+channel
+  const liveKeys = new Set(liveRows.map(r => `${r.sku}|${r.ch}`))
+  const filteredStatic = staticRows.filter(r => !liveKeys.has(`${r.sku}|${r.ch}`))
+  const allSkus = [...liveRows, ...filteredStatic]
+
+  // Sort by gross margin desc (nulls last)
+  allSkus.sort((a, b) => {
+    if (a.gross == null && b.gross == null) return 0
+    if (a.gross == null) return 1
+    if (b.gross == null) return -1
+    return b.gross - a.gross
+  })
+
+  // Chilli Oil channel breakdown from live data
+  const coChannels = liveRows
+    .filter(r => r.gross != null)
+    .map(r => ({
+      label: `${r.ch}${r.sku.includes('Jumbo') ? ' Jumbo' : r.sku.includes('Large') ? ' Large' : ''}`,
+      margin: r.gross as number,
+      color: (r.gross as number) >= 70 ? GRN : (r.gross as number) >= 50 ? BLU : ORG,
+    }))
+    .sort((a, b) => b.margin - a.margin)
+
+  // Fall back to static Chilli Oil channels if no live data
+  const CO_CHANNELS = coChannels.length > 0 ? coChannels : [
+    { label: 'DTC Jumbo', margin: 92.9, color: GRN },
+    { label: 'DTC Large', margin: 83.8, color: GRN },
+    { label: 'Wholesale', margin: 70.0, color: BLU },
+    { label: 'Coles', margin: 62.7, color: ORG },
+  ]
+
+  // Bubble chart — SKU Profitability Matrix
+  const bubbleSkus = marginSkus.filter(s => (s.volume ?? 0) > 0 && s.margin_pct != null)
+  const bubbleDatasets = bubbleSkus.map(s => {
+    const vol = s.volume ?? 0
+    const marg_d = s.margin_dollars ?? 0
+    const marg_pct = s.margin_pct ?? 0
+    const radius = Math.max(5, Math.min(30, Math.sqrt(Math.abs(marg_d) * vol) / 8))
+    const color = channelColor(s.channel)
+    return {
+      label: `${s.product} — ${s.channel}`,
+      data: [{ x: vol, y: +(marg_pct * 100).toFixed(1), r: radius }],
+      backgroundColor: color + 'aa',
+      borderColor: color,
+      borderWidth: 1,
+    }
+  })
+
+  const bubbleOpts: any = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        callbacks: {
+          label: (ctx: any) => {
+            const s = bubbleSkus[ctx.datasetIndex]
+            const vol = s.volume ?? 0
+            const marg_d = s.margin_dollars ?? 0
+            const contribution = Math.round(marg_d * vol)
+            return [
+              ` ${s.product} — ${s.channel}`,
+              ` Margin: ${((s.margin_pct ?? 0) * 100).toFixed(1)}%`,
+              ` Volume: ${vol.toLocaleString()} units`,
+              ` Contribution: $${contribution.toLocaleString()}`,
+            ]
+          },
+          title: () => '',
+        },
+      },
+    },
+    scales: {
+      x: {
+        type: 'logarithmic' as const,
+        grid: { color: DL },
+        ticks: { color: '#666', font: { size: 10 }, callback: (v: any) => v.toLocaleString() },
+        title: { display: true, text: 'Volume (units, log scale)', color: '#666', font: { size: 10 } },
+      },
+      y: {
+        grid: { color: DL },
+        ticks: { color: '#666', font: { size: 10 }, callback: (v: any) => `${v}%` },
+        title: { display: true, text: 'Gross Margin %', color: '#666', font: { size: 10 } },
+        min: 0,
+        suggestedMax: 100,
+      },
+    },
+  }
+
   return (
     <div className="page">
       {/* DSB */}
@@ -158,12 +287,15 @@ export default function MarginDetail({ data }: { data: DashboardData }) {
               </tr>
             </thead>
             <tbody>
-              {MARGIN_SKUS.map(s => (
-                <tr key={`${s.rank}-${s.ch}`}>
+              {allSkus.map((s, i) => (
+                <tr key={`${s.sku}-${s.ch}`}>
                   <td className="c">
-                    <span className={`rank-badge ${rankClass(s.rank)}`}>{s.rank}</span>
+                    <span className={`rank-badge ${rankClass(i + 1)}`}>{i + 1}</span>
                   </td>
-                  <td>{s.sku}</td>
+                  <td>
+                    {s.sku}
+                    {(s as any).isLive && <span style={{ fontSize: 9, color: GRN, marginLeft: 4 }}>live</span>}
+                  </td>
                   <td>{s.ch}</td>
                   <td className="r">{s.sell}</td>
                   <td className="r">{s.cogs}</td>
@@ -188,10 +320,41 @@ export default function MarginDetail({ data }: { data: DashboardData }) {
         </div>
       </div>
 
+      {/* SKU Profitability Bubble Chart */}
+      {bubbleSkus.length > 0 && (
+        <div className="panel" style={{ marginBottom: 16 }}>
+          <div className="ph">
+            <span className="pt">SKU Profitability Matrix</span>
+            <span className="pg">X = volume · Y = margin% · bubble size = total contribution</span>
+          </div>
+          <div className="pb">
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+              {Object.entries(CHANNEL_COLORS).map(([ch, col]) => (
+                bubbleSkus.some(s => s.channel.toLowerCase().includes(ch.toLowerCase())) && (
+                  <span key={ch} style={{ fontSize: 10, color: '#aaa', display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: '50%', background: col }} />
+                    {ch}
+                  </span>
+                )
+              ))}
+            </div>
+            <div className="chart-h260">
+              <Bubble data={{ datasets: bubbleDatasets }} options={bubbleOpts} />
+            </div>
+            <div style={{ marginTop: 6, fontSize: 10, color: 'var(--mid)' }}>
+              Bubble radius proportional to √(margin$ × volume). Hover for detail. Only SKUs with volume &gt; 0 shown.
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Channel margin breakdown */}
       <div className="g2" style={{ marginBottom: 16 }}>
         <div className="panel">
-          <div className="ph"><span className="pt">Chilli Oil — Channel Gross Margins</span></div>
+          <div className="ph">
+            <span className="pt">Chilli Oil — Channel Gross Margins</span>
+            {coChannels.length > 0 && <span className="pg" style={{ color: GRN }}>live</span>}
+          </div>
           <div className="pb"><ChannelBars data={CO_CHANNELS} /></div>
         </div>
         <div className="panel">

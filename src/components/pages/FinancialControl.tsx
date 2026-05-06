@@ -2,7 +2,7 @@
 
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, LineElement, PointElement, ArcElement, Title, Tooltip, Legend, Filler } from 'chart.js'
 import { Line, Doughnut } from 'react-chartjs-2'
-import { DashboardData } from '@/types'
+import { DashboardData, PlMonth, XeroExecSummary, XeroArInvoice } from '@/types'
 import { fmt } from '@/lib/utils'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, LineElement, PointElement, ArcElement, Title, Tooltip, Legend, Filler)
@@ -35,31 +35,52 @@ const AP_CATEGORIES_STATIC = [
   { name: 'Other', amount: 9800 },
 ]
 
-const AR_CUSTOMERS = [
-  { customer: 'Coles', balance: 220000, overdue: 0 },
-  { customer: 'Nando\'s', balance: 145000, overdue: 0 },
-  { customer: 'Distribution', balance: 82000, overdue: 10426 },
-  { customer: 'Other', balance: 48000, overdue: 0 },
-]
-
-const BANK_ACCOUNTS = [
-  { account: 'ANZ Operating', balance: 512000 },
-  { account: 'ANZ Savings', balance: 165000 },
-  { account: 'Outstanding Cheques', balance: -101000 },
-]
 
 export default function FinancialControl({ data }: { data: DashboardData }) {
   const apCategories = data.apCategories?.length ? data.apCategories : AP_CATEGORIES_STATIC
+  const dedupedCategories = apCategories.filter(
+    (c, i, arr) => arr.findIndex(x => x.name === c.name) === i
+  )
   const largeTxns = data.largeTxns ?? []
   const anomalies = data.anomalies ?? []
 
+  // Use live plMonthly data if available, fall back to hardcoded MARGIN_DATA
+  const livePL: PlMonth[] = data.plMonthly ?? []
+  const marginSource = livePL.length > 0 ? livePL : MARGIN_DATA.map(m => ({
+    id: 0, month: m.month.slice(0, 3), fiscal_year: 'fy26',
+    revenue: m.rev, cogs: 0, gross_profit: m.gp, gpm: m.gpm,
+    opex: 0, net_op_profit: m.nop ?? 0, nopm: m.nopm ?? 0, sort_order: 0,
+  }))
+
+  const latestPL = marginSource[marginSource.length - 1]
+  const latestMonthLabel = latestPL?.month ?? 'Nov'
+
+  // Exec summary (cash/working capital)
+  const execData: XeroExecSummary[] = data.xeroExecSummary ?? []
+  const latestExec = execData[execData.length - 1]
+  const cashChartData = {
+    labels: execData.map(r => r.month),
+    datasets: [
+      { label: 'Cash', data: execData.map(r => r.cash), borderColor: GRN, backgroundColor: 'rgba(39,174,96,0.08)', fill: true, tension: 0.3, pointRadius: 3, pointBackgroundColor: GRN },
+      { label: 'Working Capital', data: execData.map(r => r.working_capital), borderColor: BLU, backgroundColor: 'transparent', tension: 0.3, pointRadius: 3, pointBackgroundColor: BLU, borderDash: [4, 3] },
+    ],
+  }
+  const cashChartOpts: any = {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: true, labels: { color: '#888', font: { size: 10 }, boxWidth: 12 } }, tooltip: { callbacks: { label: (ctx: any) => ` ${ctx.dataset.label}: ${fmt(ctx.raw)}` } } },
+    scales: {
+      x: { grid: { color: DL }, ticks: { color: '#666', font: { size: 10 } } },
+      y: { grid: { color: DL }, ticks: { color: '#666', font: { size: 10 }, callback: (v: number) => `$${(v/1000).toFixed(0)}K` } },
+    },
+  }
+
   // Margin trend line chart
-  const marginLabels = MARGIN_DATA.map(m => m.month.slice(0, 3))
+  const marginLabels = marginSource.map(m => m.month.slice(0, 3))
   const lineData = {
     labels: marginLabels,
     datasets: [
-      { label: 'GPM %', data: MARGIN_DATA.map(m => m.gpm), borderColor: GRN, backgroundColor: 'transparent', tension: 0.3, pointRadius: 4, pointBackgroundColor: GRN },
-      { label: 'NOPM %', data: MARGIN_DATA.map(m => m.nopm), borderColor: BLU, backgroundColor: 'transparent', tension: 0.3, pointRadius: 4, pointBackgroundColor: BLU, borderDash: [4, 3] },
+      { label: 'GPM %', data: marginSource.map(m => m.gpm), borderColor: GRN, backgroundColor: 'transparent', tension: 0.3, pointRadius: 4, pointBackgroundColor: GRN },
+      { label: 'NOPM %', data: marginSource.map(m => m.nopm), borderColor: BLU, backgroundColor: 'transparent', tension: 0.3, pointRadius: 4, pointBackgroundColor: BLU, borderDash: [4, 3] },
     ],
   }
   const lineOpts: any = {
@@ -73,10 +94,10 @@ export default function FinancialControl({ data }: { data: DashboardData }) {
   }
 
   // AP doughnut
-  const apTotal = apCategories.reduce((s, c) => s + c.amount, 0)
+  const apTotal = dedupedCategories.reduce((s, c) => s + c.amount, 0)
   const donutData = {
-    labels: apCategories.map(c => c.name),
-    datasets: [{ data: apCategories.map(c => c.amount), backgroundColor: [RED, ORG, BLU, PRP, GRN, '#555'], borderWidth: 0 }],
+    labels: dedupedCategories.map(c => c.name),
+    datasets: [{ data: dedupedCategories.map(c => c.amount), backgroundColor: [RED, ORG, BLU, PRP, GRN, '#555'], borderWidth: 0 }],
   }
   const donutOpts: any = {
     responsive: true,
@@ -84,9 +105,10 @@ export default function FinancialControl({ data }: { data: DashboardData }) {
     plugins: { legend: { display: true, position: 'bottom', labels: { color: '#888', font: { size: 9 }, boxWidth: 9, padding: 6 } }, tooltip: { callbacks: { label: (ctx: any) => ' ' + fmt(ctx.raw) } } },
   }
 
-  const grossAR = AR_CUSTOMERS.reduce((s, c) => s + c.balance, 0)
-  const overdueAR = AR_CUSTOMERS.reduce((s, c) => s + c.overdue, 0)
-  const grossBank = BANK_ACCOUNTS.reduce((s, a) => s + a.balance, 0)
+  // Live AR invoices from Xero
+  const arInvoices: XeroArInvoice[] = data.xeroArInvoices ?? []
+  const overdueTotal = arInvoices.reduce((s, r) => s + r.amount_due, 0)
+  const overdueCount = arInvoices.length
 
   return (
     <div className="page">
@@ -100,24 +122,34 @@ export default function FinancialControl({ data }: { data: DashboardData }) {
       <div className="cmd-block">
         <div className="cmd-block-title">Financial Intelligence</div>
         <div className="flag-row">
-          <div className="flag-item red"><span className="flag-icon">⚠</span><span>Dec 2025–Mar 2026 GP/NOP not extracted — 4 months of margin blind. Financial model is operating on Nov 2025 data.</span></div>
+          {livePL.length === 0 && (
+            <div className="flag-item red"><span className="flag-icon">⚠</span><span>Dec 2025–Mar 2026 GP/NOP not extracted — 4 months of margin blind. Financial model is operating on Nov 2025 data.</span></div>
+          )}
+          {livePL.length === 0 && (
+            <div className="flag-item blue"><span className="flag-icon">→</span><span>Extract Dec 2025–Mar 2026 P&L from Xero. Run <code>python scripts/sync_xero.py</code>.</span></div>
+          )}
+          {livePL.length > 0 && (
+            <div className="flag-item green"><span className="flag-icon">↑</span><span>Live P&L data loaded from Xero — {livePL.length} months synced up to {latestMonthLabel}.</span></div>
+          )}
           <div className="flag-item red"><span className="flag-icon">⚠</span><span>Oct 2025: GPM 27.9%, NOPM -17.1%. Coles-heavy mix likely driver — needs confirmation.</span></div>
-          <div className="flag-item green"><span className="flag-icon">↑</span><span>Net liquidity $576K. Bank $677K gross. Strong cash position.</span></div>
-          <div className="flag-item blue"><span className="flag-icon">→</span><span>Extract Dec 2025–Mar 2026 P&L from Xero. Priority task.</span></div>
+          <div className="flag-item green"><span className="flag-icon">↑</span><span>Cash {latestExec ? fmt(latestExec.cash ?? 0) : '$954K'} · Working capital {latestExec ? fmt(latestExec.working_capital ?? 0) : '$155K'} · Strong position.</span></div>
+          {overdueTotal > 0 && (
+            <div className="flag-item red"><span className="flag-icon">⚠</span><span>AR overdue: {fmt(overdueTotal)} across {overdueCount} invoices — all Coles. 53 days max. Chase immediately.</span></div>
+          )}
         </div>
       </div>
 
       {/* KPI Row */}
       <div className="kpi-row cols-3">
-        <div className="kpi green">
-          <div className="kpi-lbl">GP Margin (Nov avg)</div>
-          <div className="kpi-val">51.0%</div>
-          <div className="kpi-sub">Nov 2025 — latest clean data</div>
+        <div className="kpi orange">
+          <div className="kpi-lbl">GP Margin ({latestMonthLabel})</div>
+          <div className="kpi-val">{latestPL ? latestPL.gpm.toFixed(1) + '%' : '51.0%'}</div>
+          <div className="kpi-sub">{latestMonthLabel} — {livePL.length > 0 ? 'live from Xero' : 'last extracted'}</div>
         </div>
-        <div className="kpi blue">
-          <div className="kpi-lbl">Net Op Margin (Nov)</div>
-          <div className="kpi-val">35.0%</div>
-          <div className="kpi-sub">Nov 2025 actuals</div>
+        <div className="kpi orange">
+          <div className="kpi-lbl">Net Op Margin ({latestMonthLabel})</div>
+          <div className="kpi-val">{latestPL ? latestPL.nopm.toFixed(1) + '%' : '35.0%'}</div>
+          <div className="kpi-sub">{latestMonthLabel} — {livePL.length > 0 ? 'live from Xero' : 'last extracted'}</div>
         </div>
         <div className="kpi orange">
           <div className="kpi-lbl">Largest AP Category</div>
@@ -129,7 +161,7 @@ export default function FinancialControl({ data }: { data: DashboardData }) {
       {/* Margin Trend + AP Donut */}
       <div className="g2" style={{ marginBottom: 16 }}>
         <div className="panel">
-          <div className="ph"><span className="pt">Margin Trend</span><span className="pg">Jul–Nov 2025</span></div>
+          <div className="ph"><span className="pt">Margin Trend</span><span className="pg">{marginSource.length > 0 ? `${marginSource[0].month}–${marginSource[marginSource.length - 1].month}` : 'Jul–Nov 2025'}</span></div>
           <div className="pb">
             <div className="chart-h200"><Line data={lineData} options={lineOpts} /></div>
           </div>
@@ -144,7 +176,10 @@ export default function FinancialControl({ data }: { data: DashboardData }) {
 
       {/* GP/NOP Monthly Actuals */}
       <div className="panel" style={{ marginBottom: 16 }}>
-        <div className="ph"><span className="pt">GP / NOP Monthly Actuals</span><span className="pg">Jul–Nov 2025</span></div>
+        <div className="ph">
+          <span className="pt">GP / NOP Monthly Actuals</span>
+          <span className="pg">{marginSource.length > 0 ? `${marginSource[0].month}–${marginSource[marginSource.length - 1].month}` : 'Jul–Nov 2025'}</span>
+        </div>
         <div className="pb">
           <table className="tbl">
             <thead>
@@ -158,21 +193,23 @@ export default function FinancialControl({ data }: { data: DashboardData }) {
               </tr>
             </thead>
             <tbody>
-              {MARGIN_DATA.map(m => (
+              {marginSource.map(m => (
                 <tr key={m.month}>
                   <td>{m.month}</td>
-                  <td className="r">{fmt(m.rev)}</td>
-                  <td className="r">{fmt(m.gp)}</td>
+                  <td className="r">{fmt(m.revenue)}</td>
+                  <td className="r">{fmt(m.gross_profit)}</td>
                   <td className="r"><span className={m.gpm >= 45 ? 'up' : m.gpm >= 30 ? 'warn' : 'dn'}>{m.gpm.toFixed(1)}%</span></td>
-                  <td className="r">{m.nop != null ? fmt(m.nop) : '—'}</td>
+                  <td className="r">{m.net_op_profit != null ? fmt(m.net_op_profit) : '—'}</td>
                   <td className="r"><span className={(m.nopm ?? 0) >= 25 ? 'up' : (m.nopm ?? 0) >= 0 ? 'warn' : 'dn'}>{m.nopm != null ? m.nopm.toFixed(1) + '%' : '—'}</span></td>
                 </tr>
               ))}
-              <tr style={{ background: 'rgba(192,57,43,0.07)' }}>
-                <td colSpan={6} style={{ color: RLT, fontSize: 11, fontStyle: 'italic', textAlign: 'center', padding: '10px' }}>
-                  ⚠ Dec 2025 – Mar 2026: GP/NOP data not yet extracted from Xero. Financial model has a 4-month gap.
-                </td>
-              </tr>
+              {livePL.length === 0 && (
+                <tr style={{ background: 'rgba(192,57,43,0.07)' }}>
+                  <td colSpan={6} style={{ color: RLT, fontSize: 11, fontStyle: 'italic', textAlign: 'center', padding: '10px' }}>
+                    ⚠ Dec 2025 – Mar 2026: GP/NOP data not yet extracted from Xero. Run sync_xero.py to fill this gap.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -192,7 +229,7 @@ export default function FinancialControl({ data }: { data: DashboardData }) {
                 </tr>
               </thead>
               <tbody>
-                {apCategories.map(c => (
+                {dedupedCategories.map(c => (
                   <tr key={c.name}>
                     <td>{c.name}</td>
                     <td className="r">{fmt(c.amount)}</td>
@@ -220,58 +257,74 @@ export default function FinancialControl({ data }: { data: DashboardData }) {
       <div className="slbl">Cash &amp; Working Capital</div>
       <div className="kpi-row cols-3">
         <div className="kpi green">
-          <div className="kpi-lbl">Net Liquidity</div>
-          <div className="kpi-val">$576K</div>
-          <div className="kpi-sub">After known commitments</div>
+          <div className="kpi-lbl">Cash {latestExec ? `(${latestExec.month})` : ''}</div>
+          <div className="kpi-val">{latestExec?.cash != null ? `$${(latestExec.cash / 1000).toFixed(0)}K` : '$576K'}</div>
+          <div className="kpi-sub">{latestExec ? 'live from Xero' : 'Static — run sync_xero.py'}</div>
         </div>
         <div className="kpi blue">
-          <div className="kpi-lbl">Gross AR</div>
-          <div className="kpi-val">{fmt(grossAR)}</div>
-          <div className="kpi-sub">Total accounts receivable</div>
+          <div className="kpi-lbl">Receivables {latestExec ? `(${latestExec.month})` : ''}</div>
+          <div className="kpi-val">{latestExec?.receivables != null ? fmt(latestExec.receivables) : '—'}</div>
+          <div className="kpi-sub">{latestExec ? 'live from Xero' : 'Not yet synced'}</div>
         </div>
         <div className="kpi orange">
-          <div className="kpi-lbl">Overdue AR</div>
-          <div className="kpi-val">{fmt(overdueAR)}</div>
-          <div className="kpi-sub">Outstanding &gt;30 days</div>
+          <div className="kpi-lbl">Working Capital {latestExec ? `(${latestExec.month})` : ''}</div>
+          <div className="kpi-val">{latestExec?.working_capital != null ? `$${(latestExec.working_capital / 1000).toFixed(0)}K` : '—'}</div>
+          <div className="kpi-sub">{latestExec ? 'live from Xero' : 'Not yet synced'}</div>
         </div>
       </div>
 
       <div className="g2" style={{ marginBottom: 16 }}>
         <div className="panel">
-          <div className="ph"><span className="pt">Bank Position</span></div>
+          <div className="ph">
+            <span className="pt">Cash &amp; Working Capital Trend</span>
+            {execData.length > 0 && <span className="pg">{execData[0].month}–{execData[execData.length - 1].month}</span>}
+          </div>
           <div className="pb">
-            <table className="tbl">
-              <thead><tr><th>Account</th><th className="r">Balance</th></tr></thead>
-              <tbody>
-                {BANK_ACCOUNTS.map(a => (
-                  <tr key={a.account}>
-                    <td>{a.account}</td>
-                    <td className="r" style={{ color: a.balance < 0 ? RLT : 'var(--creme)' }}>{fmt(Math.abs(a.balance))}{a.balance < 0 ? ' (cr)' : ''}</td>
-                  </tr>
-                ))}
-                <tr style={{ borderTop: '1px solid var(--grey3)' }}>
-                  <td><strong>Net</strong></td>
-                  <td className="r"><strong style={{ color: 'var(--white)' }}>{fmt(grossBank)}</strong></td>
-                </tr>
-              </tbody>
-            </table>
+            {execData.length > 0 ? (
+              <div className="chart-h200"><Line data={cashChartData} options={cashChartOpts} /></div>
+            ) : (
+              <div style={{ height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#555', fontSize: 12 }}>
+                No cash data — run <code style={{ marginLeft: 4 }}>python scripts/sync_xero.py</code>
+              </div>
+            )}
           </div>
         </div>
         <div className="panel">
-          <div className="ph"><span className="pt">AR by Customer</span></div>
+          <div className="ph">
+            <span className="pt">Overdue Invoices</span>
+            {arInvoices.length > 0 && (
+              <span className="pg" style={{ color: RLT }}>{fmt(overdueTotal)} overdue</span>
+            )}
+          </div>
           <div className="pb">
-            <table className="tbl">
-              <thead><tr><th>Customer</th><th className="r">Balance</th><th className="r">Overdue</th></tr></thead>
-              <tbody>
-                {AR_CUSTOMERS.map(c => (
-                  <tr key={c.customer}>
-                    <td>{c.customer}</td>
-                    <td className="r">{fmt(c.balance)}</td>
-                    <td className="r"><span className={c.overdue > 0 ? 'dn' : 'up'}>{c.overdue > 0 ? fmt(c.overdue) : '—'}</span></td>
+            {arInvoices.length === 0 ? (
+              <div style={{ color: '#555', fontSize: 12, padding: '8px 0' }}>No overdue invoices — run sync to populate.</div>
+            ) : (
+              <table className="tbl">
+                <thead>
+                  <tr>
+                    <th>Invoice</th>
+                    <th>Customer</th>
+                    <th className="r">Amount</th>
+                    <th className="r">Days OD</th>
+                    <th className="r">Due Date</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {arInvoices.map(inv => (
+                    <tr key={inv.invoice_id}>
+                      <td style={{ fontSize: 11, color: '#888' }}>{inv.invoice_number}</td>
+                      <td>{inv.contact_name}</td>
+                      <td className="r">{fmt(inv.amount_due)}</td>
+                      <td className="r">
+                        <span className={inv.days_overdue > 30 ? 'dn' : 'warn'}>{inv.days_overdue}d</span>
+                      </td>
+                      <td className="r" style={{ fontSize: 11, color: '#888' }}>{inv.due_date}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
       </div>

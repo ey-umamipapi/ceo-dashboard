@@ -38,7 +38,7 @@ export default function ProductionDetail({ data, filterSkus }: Props) {
   const prodMonthly = data.prodMonthly ?? []
   const prodSku = data.prodSku ?? []
 
-  // Filter SKU data
+  // Filter SKU data (used for the monthly stacked bar — static data, no live equivalent)
   const filteredSkus = filterSkus.length > 0
     ? PROD_PROD.filter(p => filterSkus.includes(p.p))
     : PROD_PROD
@@ -92,12 +92,18 @@ export default function ProductionDetail({ data, filterSkus }: Props) {
     },
   }
 
-  // SKU Mix donut (from prodSku or PROD_PROD totals)
-  const skuTotals = filteredSkus.map(p => ({
-    label: p.p,
-    total: p.ytd,
-    color: SKU_COLORS[p.p] ?? '#888',
-  }))
+  // SKU Mix donut — use live prodSku if available, otherwise fall back to static PROD_PROD
+  const skuTotals = prodSku.length > 0
+    ? prodSku.map(s => ({
+        label: s.sku,
+        total: s.units ?? 0,
+        color: SKU_COLORS[s.sku] ?? '#888',
+      }))
+    : filteredSkus.map(p => ({
+        label: p.p,
+        total: p.ytd,
+        color: SKU_COLORS[p.p] ?? '#888',
+      }))
   const grandTotal = skuTotals.reduce((s, p) => s + p.total, 0)
 
   const donutData = {
@@ -165,7 +171,7 @@ export default function ProductionDetail({ data, filterSkus }: Props) {
       {/* g-1-2: SKU Mix + SKU by Month */}
       <div className="g-1-2">
         <div className="panel">
-          <div className="ph"><span className="pt">SKU Mix</span><span className="pg">YTD {grandTotal.toLocaleString()} units</span></div>
+          <div className="ph"><span className="pt">SKU Mix</span><span className="pg">{prodSku.length > 0 ? 'Live' : 'Static'} · {grandTotal.toLocaleString()} units</span></div>
           <div className="pb">
             <div className="chart-h200"><Doughnut data={donutData} options={donutOpts} /></div>
             <div style={{ marginTop: 10 }}>
@@ -182,7 +188,8 @@ export default function ProductionDetail({ data, filterSkus }: Props) {
           </div>
         </div>
         <div className="panel">
-          <div className="ph"><span className="pt">SKU by Month</span></div>
+          {/* Note: SKU by Month uses static PROD_PROD data — prodSku doesn't have month-level breakdown */}
+          <div className="ph"><span className="pt">SKU by Month</span><span className="pg">Static data</span></div>
           <div className="pb">
             <div className="chart-h300"><Bar data={skuByMonthData} options={skuByMonthOpts} /></div>
           </div>

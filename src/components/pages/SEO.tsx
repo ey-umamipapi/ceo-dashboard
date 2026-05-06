@@ -81,6 +81,11 @@ export default function SEO({ data }: { data: DashboardData }) {
       <div className="dsb">
         <div className="dsb-item"><div className="dsb-dot" /><span className="dsb-label">SEO Data</span><span>{formatSyncTime(data.syncMetadata, 'seo')}</span></div>
         <div className="dsb-item"><div className="dsb-dot stale" /><span className="dsb-label">Google Search Console</span><span>Rolling 3 months</span></div>
+        <div className="dsb-item">
+          <a href="https://datastudio.google.com/u/0/reporting/8653399c-c71a-41e5-8b97-8a104e70cd9d/page/p_5ke0tcol0d?s=sWC4hdLXEcs" target="_blank" rel="noopener noreferrer" style={{ color: BLU, fontSize: 11, textDecoration: 'none' }}>
+            ↗ Open Looker Studio
+          </a>
+        </div>
       </div>
 
       {/* Command Block */}
@@ -107,16 +112,20 @@ export default function SEO({ data }: { data: DashboardData }) {
             <div className="kpi-row cols-2" style={{ marginBottom: 14 }}>
               <div className="kpi red">
                 <div className="kpi-lbl">Organic Clicks</div>
-                <div className="kpi-val small">4,210</div>
-                <div className="kpi-sub"><span className="dn">-8.2%</span> vs prior year</div>
+                <div className="kpi-val small">{seoSnapshots.length === 0 ? '—' : '4,210'}</div>
+                <div className="kpi-sub">{seoSnapshots.length === 0 ? 'No data synced' : <><span className="dn">-8.2%</span> vs prior year</>}</div>
               </div>
               <div className="kpi green">
                 <div className="kpi-lbl">Purchases</div>
-                <div className="kpi-val small">75</div>
-                <div className="kpi-sub"><span className="up">+5.6%</span> YoY</div>
+                <div className="kpi-val small">{seoSnapshots.length === 0 ? '—' : '75'}</div>
+                <div className="kpi-sub">{seoSnapshots.length === 0 ? 'No data synced' : <><span className="up">+5.6%</span> YoY</>}</div>
               </div>
             </div>
-            <div className="chart-h160"><Bar data={barData} options={barOpts} /></div>
+            {seoSnapshots.length === 0 ? (
+              <p className="text-muted text-sm">SEO data not yet synced — seo_snapshots table is empty.</p>
+            ) : (
+              <div className="chart-h160"><Bar data={barData} options={barOpts} /></div>
+            )}
           </div>
         </div>
         <div className="panel">
@@ -156,7 +165,7 @@ export default function SEO({ data }: { data: DashboardData }) {
       {/* Key Pages + Key Queries */}
       <div className="g2" style={{ marginBottom: 16 }}>
         <div className="panel">
-          <div className="ph"><span className="pt">Key Pages</span></div>
+          <div className="ph"><span className="pt">Key Pages</span><span className="pg">Last updated: Mar 2026</span></div>
           <div className="pb">
             <table className="tbl">
               <thead>

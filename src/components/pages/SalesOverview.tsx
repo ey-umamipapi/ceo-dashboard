@@ -18,7 +18,7 @@ function formatSyncTime(syncMetadata: any[] | undefined, source: string): string
 const DL = 'rgba(255,255,255,0.04)'
 const RED = '#C0392B', RLT = '#E74C3C', CRM = '#F5E6D0', GRN = '#27AE60', ORG = '#E67E22', BLU = '#2980B9', PRP = '#8E44AD'
 
-const MONTHS = ['Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr']
+const FY_MONTH_ORDER = ['Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun']
 
 interface Props {
   data: DashboardData
@@ -41,21 +41,29 @@ export default function SalesOverview({ data, filterYear }: Props) {
 
   const nonMtd = rows.filter(m => !m.mtd)
   const mtdRow = fy26.find(m => m.mtd)
-  const marRow = nonMtd.find(m => m.month?.includes('Mar') || m.month?.includes('Mar'))
-    ?? nonMtd.at(-1)
-  const febRow = nonMtd.find(m => m.month?.includes('Feb'))
+  const prevMonthRow = nonMtd.at(-1)       // last complete month
+  const prev2MonthRow = nonMtd.at(-2)      // two months ago
+
+  // Dynamic date helpers
+  const MONTH_ABBR = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+  const now = new Date()
+  const curMonthAbbr  = MONTH_ABBR[now.getMonth()]
+  const prevMonthAbbr = prevMonthRow?.month?.slice(0, 3) ?? MONTH_ABBR[(now.getMonth() + 11) % 12]
+  const prev2MonthAbbr = prev2MonthRow?.month?.slice(0, 3) ?? MONTH_ABBR[(now.getMonth() + 10) % 12]
+  const mtdDaysElapsed = now.getDate() - 1
 
   const ytdTotal = rows.reduce((s, m) => s + (m.total ?? 0), 0)
-  const fy25Base = fy25.slice(0, 9).reduce((s, m) => s + (m.total ?? 0), 0)
+  const fy26Count = fy26.length
+  const fy25Base = fy25.slice(0, fy26Count).reduce((s, m) => s + (m.total ?? 0), 0)
   const yoyPct = pct(ytdTotal, fy25Base)
 
-  const aprMtdDays = 8
-  const aprProjected = mtdRow ? (mtdRow.total / aprMtdDays) * 30 : 0
-  const momProjPct = marRow ? pct(aprProjected, marRow.total) : 0
+  const mtdProjected = mtdDaysElapsed > 0 && mtdRow ? (mtdRow.total / mtdDaysElapsed) * 30 : 0
+  const momProjPct = prevMonthRow ? pct(mtdProjected, prevMonthRow.total) : 0
 
-  // FY25 YoY Apr (use Apr FY25 row if available)
-  const apr25 = fy25.find(m => m.month?.includes('Apr'))
-  const yoyApr = apr25 && mtdRow ? pct(mtdRow.total, apr25.total) : 0
+  // Chart month labels — derive from actual FY26 data
+  const chartMonths = FY_MONTH_ORDER.filter(mo =>
+    fy26.some(m => m.month?.startsWith(mo)) || fy25.some(m => m.month?.startsWith(mo))
+  )
 
   // Channel totals YTD
   const channelTotals = CHANNELS_DEF.map(ch => ({
@@ -65,17 +73,17 @@ export default function SalesOverview({ data, filterYear }: Props) {
   const grandTotal = channelTotals.reduce((s, c) => s + c.total, 0)
 
   // Monthly revenue chart data
-  const fy26Monthly = MONTHS.map(mo => {
+  const fy26Monthly = chartMonths.map(mo => {
     const r = fy26.find(m => m.month?.startsWith(mo))
     return r ? r.total : 0
   })
-  const fy25Monthly = MONTHS.map(mo => {
+  const fy25Monthly = chartMonths.map(mo => {
     const r = fy25.find(m => m.month?.startsWith(mo))
     return r ? r.total : 0
   })
 
   const lineData = {
-    labels: MONTHS,
+    labels: chartMonths,
     datasets: [
       { label: 'FY26', data: fy26Monthly, borderColor: RED, backgroundColor: 'rgba(192,57,43,0.15)', tension: 0.35, fill: true, pointRadius: 3, pointBackgroundColor: RED },
       { label: 'FY25', data: fy25Monthly, borderColor: '#555', backgroundColor: 'transparent', tension: 0.35, borderDash: [4, 3], pointRadius: 2, pointBackgroundColor: '#555' },
@@ -145,26 +153,21 @@ export default function SalesOverview({ data, filterYear }: Props) {
       </div>
 
       {/* KPI Row */}
-      <div className="kpi-row cols-4">
+      <div className="kpi-row cols-3">
         <div className="kpi">
           <div className="kpi-lbl">YTD Revenue</div>
           <div className="kpi-val">{fmt(ytdTotal)}</div>
           <div className="kpi-sub"><span className={yoyPct >= 0 ? 'up' : 'dn'}>{pctFmt(yoyPct)}</span> vs FY25</div>
         </div>
         <div className="kpi blue">
-          <div className="kpi-lbl">Apr MTD</div>
+          <div className="kpi-lbl">{curMonthAbbr} MTD</div>
           <div className="kpi-val">{mtdRow ? fmt(mtdRow.total) : '—'}</div>
-          <div className="kpi-sub">8 days in</div>
+          <div className="kpi-sub">{mtdDaysElapsed} days in</div>
         </div>
         <div className="kpi orange">
           <div className="kpi-lbl">Proj MoM</div>
           <div className="kpi-val">{pctFmt(momProjPct)}</div>
-          <div className="kpi-sub">vs Mar {marRow ? fmt(marRow.total) : '—'}</div>
-        </div>
-        <div className="kpi purple">
-          <div className="kpi-lbl">YoY ex-Metcash</div>
-          <div className="kpi-val">+9.4%</div>
-          <div className="kpi-sub">Organic growth</div>
+          <div className="kpi-sub">vs {prevMonthAbbr} {prevMonthRow ? fmt(prevMonthRow.total) : '—'}</div>
         </div>
       </div>
 
@@ -202,27 +205,25 @@ export default function SalesOverview({ data, filterYear }: Props) {
                 <th>Channel</th>
                 <th className="r">YTD</th>
                 <th className="r">% Share</th>
-                <th className="r">Feb</th>
-                <th className="r">Mar</th>
+                <th className="r">{prev2MonthAbbr}</th>
+                <th className="r">{prevMonthAbbr}</th>
                 <th className="r">MoM</th>
               </tr>
             </thead>
             <tbody>
               {channelTotals.map(ch => {
-                const feb = nonMtd.find(m => m.month?.includes('Feb'))
-                const mar = nonMtd.find(m => m.month?.includes('Mar'))
-                const febVal = feb ? getChannelKey(ch, feb) : 0
-                const marVal = mar ? getChannelKey(ch, mar) : 0
-                const mom = pct(marVal, febVal)
+                const prev2Val = prev2MonthRow ? getChannelKey(ch, prev2MonthRow) : 0
+                const prevVal  = prevMonthRow  ? getChannelKey(ch, prevMonthRow)  : 0
+                const mom = pct(prevVal, prev2Val)
                 const share = grandTotal > 0 ? (ch.total / grandTotal * 100) : 0
                 return (
                   <tr key={ch.key}>
                     <td><span className="dot" style={{ background: ch.color }} />{ch.label}</td>
                     <td className="r">{fmt(ch.total)}</td>
                     <td className="r">{share.toFixed(1)}%</td>
-                    <td className="r">{febVal > 0 ? fmt(febVal) : '—'}</td>
-                    <td className="r">{marVal > 0 ? fmt(marVal) : '—'}</td>
-                    <td className="r"><span className={mom >= 0 ? 'up' : 'dn'}>{marVal > 0 && febVal > 0 ? pctFmt(mom) : '—'}</span></td>
+                    <td className="r">{prev2Val > 0 ? fmt(prev2Val) : '—'}</td>
+                    <td className="r">{prevVal > 0 ? fmt(prevVal) : '—'}</td>
+                    <td className="r"><span className={mom >= 0 ? 'up' : 'dn'}>{prevVal > 0 && prev2Val > 0 ? pctFmt(mom) : '—'}</span></td>
                   </tr>
                 )
               })}
