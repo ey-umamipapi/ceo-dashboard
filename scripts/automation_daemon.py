@@ -65,13 +65,19 @@ def dispatch(job_type: str) -> str:
     """Run the script for the given job type and return a short summary string."""
 
     if job_type == 'invoices':
-        result = subprocess.run(
-            ['python3', f'{COWORK}/Code/invoice_register.py'],
-            capture_output=True, text=True, timeout=300,
+        # Relay via iMessage self-chat → Koji picks it up and runs the invoice
+        # register skill (which requires MS365 MCP — can't run as bare subprocess).
+        script = (
+            'tell application "Messages"\n'
+            '  set svc to 1st service whose service type = iMessage\n'
+            '  set buddy to buddy "admin@umamipapi.com.au" of svc\n'
+            '  send "run invoices" to buddy\n'
+            'end tell'
         )
+        result = subprocess.run(['osascript', '-e', script], capture_output=True, text=True, timeout=15)
         if result.returncode != 0:
-            raise RuntimeError(result.stderr[-500:] if result.stderr else 'Non-zero exit')
-        return (result.stdout.strip().split('\n')[-1] or 'Done')[:200]
+            raise RuntimeError(result.stderr.strip() or 'AppleScript failed')
+        return 'Triggered via iMessage — Koji will reply with the run summary'
 
     elif job_type == 'retcon-sales':
         result = subprocess.run(
