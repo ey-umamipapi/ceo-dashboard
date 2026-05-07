@@ -341,10 +341,10 @@ export default function PeopleTeam({ data }: { data: DashboardData }) {
         </div>
       </div>
 
-      {/* Zoho Pay Run Schedule */}
+      {/* Xero Pay Run Schedule */}
       <div className="panel" style={{ marginBottom: 16 }}>
         <div className="ph">
-          <span className="pt">Zoho Pay Run Schedule</span>
+          <span className="pt">Xero Pay Run Schedule</span>
           <span className="pg">FY26 · 26 fortnightly runs · PR{CURRENT_PR} current</span>
         </div>
         <div className="pb" style={{ padding: 0, overflowX: 'auto' }}>
