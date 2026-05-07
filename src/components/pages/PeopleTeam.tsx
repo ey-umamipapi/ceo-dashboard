@@ -70,6 +70,57 @@ const PAY_RUNS: { pr: number; start: string; end: string; payDate: string; wages
 // Current payrun = PR 22 (today is in 27 Apr – 10 May window)
 const CURRENT_PR = 22
 
+// Per-employee payrun data — sourced from Employee Schedule FY26_LIVE.xlsx → Schedule sheet
+// wdayWages = ordinary weekday wages; satWages = Saturday wages (at 1.5× rate)
+// Earnings rate names should match your Xero pay items exactly
+const PR_EMPLOYEE_DATA: Record<number, {emp:string; wdayHrs:number; wdayWages:number; satHrs:number; satWages:number}[]> = {
+  1: [{emp:'Kritsana',wdayHrs:44.75,wdayWages:1655.75,satHrs:0,satWages:0},{emp:'Leangheng',wdayHrs:38,wdayWages:1406,satHrs:0,satWages:0},{emp:'Wilson',wdayHrs:66.5,wdayWages:2460.5,satHrs:0,satWages:0},{emp:'Eduard',wdayHrs:29,wdayWages:928,satHrs:0,satWages:0},{emp:'Sorrapong',wdayHrs:74.75,wdayWages:2616.25,satHrs:0,satWages:0}],
+  2: [{emp:'Kritsana',wdayHrs:43.75,wdayWages:1618.75,satHrs:0,satWages:0},{emp:'Leangheng',wdayHrs:41.25,wdayWages:1526.25,satHrs:0,satWages:0},{emp:'Wilson',wdayHrs:58.25,wdayWages:2155.25,satHrs:0,satWages:0},{emp:'Eduard',wdayHrs:72.25,wdayWages:2312,satHrs:0,satWages:0},{emp:'Sorrapong',wdayHrs:72.5,wdayWages:2537.5,satHrs:0,satWages:0},{emp:'Lal Ma Ngaih',wdayHrs:36.25,wdayWages:1160,satHrs:0,satWages:0},{emp:'Thanaphon Idei',wdayHrs:14.5,wdayWages:464,satHrs:0,satWages:0}],
+  3: [{emp:'Kritsana',wdayHrs:44,wdayWages:1628,satHrs:0,satWages:0},{emp:'Leangheng',wdayHrs:42,wdayWages:1554,satHrs:0,satWages:0},{emp:'Wilson',wdayHrs:67.75,wdayWages:2506.75,satHrs:0,satWages:0},{emp:'Eduard',wdayHrs:71.25,wdayWages:2280,satHrs:0,satWages:0},{emp:'Sorrapong',wdayHrs:64.75,wdayWages:2266.25,satHrs:0,satWages:0},{emp:'Lal Ma Ngaih',wdayHrs:72,wdayWages:2304,satHrs:0,satWages:0},{emp:'Thanaphon Idei',wdayHrs:64.25,wdayWages:2056,satHrs:0,satWages:0}],
+  4: [{emp:'Kritsana',wdayHrs:36.75,wdayWages:1359.75,satHrs:0,satWages:0},{emp:'Leangheng',wdayHrs:44.75,wdayWages:1655.75,satHrs:0,satWages:0},{emp:'Wilson',wdayHrs:66.75,wdayWages:2469.75,satHrs:0,satWages:0},{emp:'Eduard',wdayHrs:73.25,wdayWages:2344,satHrs:0,satWages:0},{emp:'Sorrapong',wdayHrs:74.75,wdayWages:2616.25,satHrs:0,satWages:0},{emp:'Lal Ma Ngaih',wdayHrs:67.25,wdayWages:2152,satHrs:0,satWages:0},{emp:'Thanaphon Idei',wdayHrs:74.75,wdayWages:2392,satHrs:0,satWages:0}],
+  5: [{emp:'Kritsana',wdayHrs:44.5,wdayWages:1646.5,satHrs:0,satWages:0},{emp:'Leangheng',wdayHrs:45.5,wdayWages:1683.5,satHrs:0,satWages:0},{emp:'Wilson',wdayHrs:73.5,wdayWages:2719.5,satHrs:0,satWages:0},{emp:'Eduard',wdayHrs:74.75,wdayWages:2392,satHrs:0,satWages:0},{emp:'Sorrapong',wdayHrs:75,wdayWages:2625,satHrs:0,satWages:0},{emp:'Lal Ma Ngaih',wdayHrs:67.25,wdayWages:2152,satHrs:0,satWages:0},{emp:'Thanaphon Idei',wdayHrs:75,wdayWages:2400,satHrs:0,satWages:0}],
+  6: [{emp:'Kritsana',wdayHrs:65,wdayWages:2405,satHrs:0,satWages:0},{emp:'Leangheng',wdayHrs:36.25,wdayWages:1341.25,satHrs:0,satWages:0},{emp:'Wilson',wdayHrs:57.5,wdayWages:2127.5,satHrs:0,satWages:0},{emp:'Eduard',wdayHrs:64.5,wdayWages:2064,satHrs:0,satWages:0},{emp:'Sorrapong',wdayHrs:65,wdayWages:2275,satHrs:0,satWages:0},{emp:'Lal Ma Ngaih',wdayHrs:58,wdayWages:1856,satHrs:0,satWages:0},{emp:'Thanaphon Idei',wdayHrs:65,wdayWages:2080,satHrs:0,satWages:0}],
+  7: [{emp:'Kritsana',wdayHrs:62.75,wdayWages:2321.75,satHrs:0,satWages:0},{emp:'Leangheng',wdayHrs:28.75,wdayWages:1063.75,satHrs:0,satWages:0},{emp:'Wilson',wdayHrs:56.5,wdayWages:2090.5,satHrs:0,satWages:0},{emp:'Eduard',wdayHrs:42,wdayWages:1344,satHrs:0,satWages:0},{emp:'Sorrapong',wdayHrs:62.75,wdayWages:2196.25,satHrs:0,satWages:0},{emp:'Thanaphon Idei',wdayHrs:62,wdayWages:1984,satHrs:0,satWages:0}],
+  8: [{emp:'Kritsana',wdayHrs:62.5,wdayWages:2312.5,satHrs:0,satWages:0},{emp:'Leangheng',wdayHrs:14.75,wdayWages:545.75,satHrs:0,satWages:0},{emp:'Wilson',wdayHrs:71.25,wdayWages:2636.25,satHrs:0,satWages:0},{emp:'Eduard',wdayHrs:58.25,wdayWages:1864,satHrs:0,satWages:0},{emp:'Sorrapong',wdayHrs:71.75,wdayWages:2511.25,satHrs:0,satWages:0},{emp:'Thanaphon Idei',wdayHrs:21.25,wdayWages:680,satHrs:0,satWages:0}],
+  9: [{emp:'Kritsana',wdayHrs:30,wdayWages:1110,satHrs:0,satWages:0},{emp:'Leangheng',wdayHrs:23,wdayWages:851,satHrs:0,satWages:0},{emp:'Wilson',wdayHrs:61,wdayWages:2257,satHrs:0,satWages:0},{emp:'Eduard',wdayHrs:65.25,wdayWages:2088,satHrs:0,satWages:0},{emp:'Sorrapong',wdayHrs:66.25,wdayWages:2318.75,satHrs:0,satWages:0}],
+  10: [{emp:'Kritsana',wdayHrs:67.75,wdayWages:2506.75,satHrs:7.25,satWages:402.38},{emp:'Leangheng',wdayHrs:45.5,wdayWages:1683.5,satHrs:0,satWages:0},{emp:'Wilson',wdayHrs:73.75,wdayWages:2728.75,satHrs:7.25,satWages:402.38},{emp:'Eduard',wdayHrs:66.75,wdayWages:2136,satHrs:7,satWages:336},{emp:'Sorrapong',wdayHrs:76.75,wdayWages:2686.25,satHrs:7.25,satWages:380.62}],
+  11: [{emp:'Kritsana',wdayHrs:77.5,wdayWages:2867.5,satHrs:8,satWages:444},{emp:'Leangheng',wdayHrs:46.75,wdayWages:1729.75,satHrs:8,satWages:444},{emp:'Wilson',wdayHrs:77.5,wdayWages:2867.5,satHrs:16,satWages:888},{emp:'Eduard',wdayHrs:77,wdayWages:2464,satHrs:14.5,satWages:696},{emp:'Sorrapong',wdayHrs:62.25,wdayWages:2178.75,satHrs:8,satWages:420},{emp:'Jackson',wdayHrs:11.25,wdayWages:360,satHrs:0,satWages:0},{emp:'Patrick',wdayHrs:7.5,wdayWages:240,satHrs:0,satWages:0},{emp:'Jonathan',wdayHrs:46.25,wdayWages:1480,satHrs:8,satWages:384}],
+  12: [{emp:'Kritsana',wdayHrs:76.75,wdayWages:2839.75,satHrs:7.5,satWages:416.25},{emp:'Leangheng',wdayHrs:48.5,wdayWages:1794.5,satHrs:7.5,satWages:416.25},{emp:'Wilson',wdayHrs:76.75,wdayWages:2839.75,satHrs:7.5,satWages:416.25},{emp:'Eduard',wdayHrs:76.5,wdayWages:2448,satHrs:7.5,satWages:360},{emp:'Sorrapong',wdayHrs:76.75,wdayWages:2686.25,satHrs:7.5,satWages:393.75},{emp:'Jackson',wdayHrs:41.75,wdayWages:1336,satHrs:0,satWages:0},{emp:'Patrick',wdayHrs:76.75,wdayWages:2456,satHrs:3,satWages:144},{emp:'Jonathan',wdayHrs:76.75,wdayWages:2456,satHrs:7.5,satWages:360}],
+  13: [{emp:'Kritsana',wdayHrs:14.25,wdayWages:527.25,satHrs:0,satWages:0},{emp:'Leangheng',wdayHrs:14.25,wdayWages:527.25,satHrs:0,satWages:0},{emp:'Wilson',wdayHrs:14.25,wdayWages:527.25,satHrs:0,satWages:0},{emp:'Eduard',wdayHrs:14.25,wdayWages:456,satHrs:0,satWages:0},{emp:'Patrick',wdayHrs:14.25,wdayWages:456,satHrs:0,satWages:0}],
+  14: [{emp:'Kritsana',wdayHrs:76,wdayWages:2812,satHrs:0,satWages:0},{emp:'Wilson',wdayHrs:75.75,wdayWages:2878.5,satHrs:0,satWages:0},{emp:'Eduard',wdayHrs:66,wdayWages:2178,satHrs:0,satWages:0},{emp:'Jackson',wdayHrs:35.25,wdayWages:1128,satHrs:0,satWages:0},{emp:'Patrick',wdayHrs:76,wdayWages:2432,satHrs:0,satWages:0},{emp:'Jonathan',wdayHrs:76,wdayWages:2432,satHrs:0,satWages:0}],
+  15: [{emp:'Kritsana',wdayHrs:67.5,wdayWages:2497.5,satHrs:0,satWages:0},{emp:'Wilson',wdayHrs:68,wdayWages:2584,satHrs:0,satWages:0},{emp:'Eduard',wdayHrs:66.5,wdayWages:2194.5,satHrs:0,satWages:0},{emp:'Jackson',wdayHrs:27.75,wdayWages:888,satHrs:0,satWages:0},{emp:'Patrick',wdayHrs:67.5,wdayWages:2160,satHrs:0,satWages:0},{emp:'Jonathan',wdayHrs:60,wdayWages:1920,satHrs:0,satWages:0}],
+  16: [{emp:'Kritsana',wdayHrs:75.25,wdayWages:2784.25,satHrs:0,satWages:0},{emp:'Wilson',wdayHrs:75.25,wdayWages:2859.5,satHrs:0,satWages:0},{emp:'Eduard',wdayHrs:74.75,wdayWages:2466.75,satHrs:0,satWages:0},{emp:'Jackson',wdayHrs:3,wdayWages:96,satHrs:0,satWages:0},{emp:'Patrick',wdayHrs:75.25,wdayWages:2408,satHrs:0,satWages:0},{emp:'Jonathan',wdayHrs:75.25,wdayWages:2408,satHrs:0,satWages:0}],
+  17: [{emp:'Kritsana',wdayHrs:74.75,wdayWages:2765.75,satHrs:0,satWages:0},{emp:'Wilson',wdayHrs:73.75,wdayWages:2802.5,satHrs:0,satWages:0},{emp:'Eduard',wdayHrs:62.25,wdayWages:2054.25,satHrs:0,satWages:0},{emp:'Patrick',wdayHrs:73.75,wdayWages:2360,satHrs:0,satWages:0},{emp:'Jonathan',wdayHrs:74.75,wdayWages:2392,satHrs:0,satWages:0},{emp:'Ciro',wdayHrs:14,wdayWages:448,satHrs:0,satWages:0}],
+  18: [{emp:'Wilson',wdayHrs:60.25,wdayWages:2289.5,satHrs:0,satWages:0},{emp:'Eduard',wdayHrs:66.25,wdayWages:2186.25,satHrs:0,satWages:0},{emp:'Patrick',wdayHrs:67.5,wdayWages:2160,satHrs:0,satWages:0},{emp:'Jonathan',wdayHrs:68.5,wdayWages:2192,satHrs:0,satWages:0},{emp:'Ciro',wdayHrs:60.75,wdayWages:1944,satHrs:0,satWages:0}],
+  19: [{emp:'Wilson',wdayHrs:77,wdayWages:2926,satHrs:15.25,satWages:869.25},{emp:'Eduard',wdayHrs:76.5,wdayWages:2524.5,satHrs:15.25,satWages:754.88},{emp:'Jonathan',wdayHrs:77,wdayWages:2464,satHrs:8,satWages:384},{emp:'Ciro',wdayHrs:76.25,wdayWages:2440,satHrs:15.25,satWages:732}],
+  20: [{emp:'Kritsana',wdayHrs:62.5,wdayWages:2756.5,satHrs:0,satWages:0},{emp:'Wilson',wdayHrs:69.25,wdayWages:3059,satHrs:0,satWages:0},{emp:'Eduard',wdayHrs:60.75,wdayWages:2363.62,satHrs:0,satWages:0},{emp:'Ciro',wdayHrs:69.25,wdayWages:2576,satHrs:0,satWages:0},{emp:'Diego',wdayHrs:22,wdayWages:704,satHrs:0,satWages:0}],
+  21: [{emp:'Kritsana',wdayHrs:75.5,wdayWages:2793.5,satHrs:0,satWages:0},{emp:'Wilson',wdayHrs:68.25,wdayWages:2593.5,satHrs:0,satWages:0},{emp:'Eduard',wdayHrs:71.5,wdayWages:2359.5,satHrs:2.5,satWages:123.75},{emp:'Jonathan',wdayHrs:75.5,wdayWages:2416,satHrs:0,satWages:0},{emp:'Ciro',wdayHrs:69,wdayWages:2208,satHrs:8,satWages:384},{emp:'Diego',wdayHrs:75.5,wdayWages:2416,satHrs:0,satWages:0}],
+  22: [{emp:'Kritsana',wdayHrs:60,wdayWages:2220,satHrs:0,satWages:0},{emp:'Wilson',wdayHrs:50.75,wdayWages:1928.5,satHrs:0,satWages:0},{emp:'Eduard',wdayHrs:52.5,wdayWages:1732.5,satHrs:0,satWages:0},{emp:'Jonathan',wdayHrs:60.25,wdayWages:1928,satHrs:0,satWages:0},{emp:'Ciro',wdayHrs:60.25,wdayWages:1928,satHrs:0,satWages:0},{emp:'Diego',wdayHrs:15,wdayWages:480,satHrs:0,satWages:0}],
+  23: [{emp:'Wilson',wdayHrs:15,wdayWages:570,satHrs:0,satWages:0},{emp:'Eduard',wdayHrs:22.5,wdayWages:742.5,satHrs:0,satWages:0},{emp:'Jonathan',wdayHrs:22.5,wdayWages:720,satHrs:0,satWages:0},{emp:'Ciro',wdayHrs:22.5,wdayWages:720,satHrs:0,satWages:0}],
+  24: [], 25: [], 26: [],
+}
+
+function exportXeroCSV(pr: number, payDate: string) {
+  const rows = PR_EMPLOYEE_DATA[pr] ?? []
+  if (rows.length === 0) return
+  const lines: string[] = [
+    `# Xero Pay Run Import — PR ${pr} — Pay Date: ${payDate}`,
+    `# Match 'Earnings Rate Name' to your Xero pay items exactly`,
+    `Employee Name,Earnings Rate Name,Units,Amount`,
+  ]
+  for (const r of rows) {
+    if (r.wdayWages > 0) lines.push(`${r.emp},Ordinary Hours,${r.wdayHrs.toFixed(2)},${r.wdayWages.toFixed(2)}`)
+    if (r.satWages > 0)  lines.push(`${r.emp},Saturday,${r.satHrs.toFixed(2)},${r.satWages.toFixed(2)}`)
+  }
+  const blob = new Blob([lines.join('\n')], { type: 'text/csv' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `xero-payrun-pr${pr}.csv`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 function hrsColor(h: number): { bg: string; color: string } {
   if (h === 0) return { bg: 'transparent', color: '#333' }
   if (h >= 110) return { bg: 'rgba(39,174,96,0.15)', color: '#27AE60' }
@@ -351,7 +402,7 @@ export default function PeopleTeam({ data }: { data: DashboardData }) {
           <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 680 }}>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--row-sep)' }}>
-                {['PR #','Period','Pay Date','Wages','OT','Allow','Super','Total'].map(h => (
+                {['PR #','Period','Pay Date','Wages','OT','Allow','Super','Total',''].map(h => (
                   <th key={h} style={{ textAlign: h === 'PR #' ? 'left' : 'right', padding: '6px 10px', fontSize: 11, color: 'var(--mid)', fontWeight: 500, whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
@@ -376,6 +427,16 @@ export default function PeopleTeam({ data }: { data: DashboardData }) {
                     <td style={{ textAlign: 'right', padding: '5px 10px', fontSize: 11, color: r.allow > 0 ? '#2980B9' : numColor, whiteSpace: 'nowrap' }}>{dolFmt(r.allow)}</td>
                     <td style={{ textAlign: 'right', padding: '5px 10px', fontSize: 11, color: numColor, whiteSpace: 'nowrap' }}>{dolFmt(r.super_)}</td>
                     <td style={{ textAlign: 'right', padding: '5px 10px', fontSize: 12, fontWeight: 700, color: isFuture ? '#555' : isCurrent ? '#E67E22' : 'var(--creme)', whiteSpace: 'nowrap' }}>{dolFmt(r.total)}</td>
+                    <td style={{ textAlign: 'right', padding: '4px 10px' }}>
+                      {!isFuture && r.total > 0 && (
+                        <button
+                          onClick={() => exportXeroCSV(r.pr, r.payDate)}
+                          style={{ fontSize: 10, padding: '2px 7px', borderRadius: 4, border: '1px solid #2980B9', background: 'rgba(41,128,185,0.12)', color: '#2980B9', cursor: 'pointer', whiteSpace: 'nowrap', fontWeight: 600 }}
+                        >
+                          Export →
+                        </button>
+                      )}
+                    </td>
                   </tr>
                 )
               })}
